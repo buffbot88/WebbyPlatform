@@ -18,6 +18,9 @@ export default function Layout() {
           <Link to="/preview" className="block px-4 py-2 text-gray-700 hover:bg-gray-200">
             Preview
           </Link>
+          <Link to="/debug" className="block px-4 py-2 text-gray-700 hover:bg-gray-200">
+            Audit Debugger
+          </Link>
         </nav>
       </div>
 

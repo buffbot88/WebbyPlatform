@@ -1,168 +1,123 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react'
-import siteData from '../../../data/site.json'
-
-// Action types
-const SITE_ACTIONS = {
-  SET_SITE: 'SET_SITE',
-  UPDATE_SITE: 'UPDATE_SITE',
-  ADD_PAGE: 'ADD_PAGE',
-  REMOVE_PAGE: 'REMOVE_PAGE',
-  ADD_SECTION: 'ADD_SECTION',
-  REMOVE_SECTION: 'REMOVE_SECTION',
-  UPDATE_THEME: 'UPDATE_THEME',
-  UPDATE_PUBLISH_STATE: 'UPDATE_PUBLISH_STATE',
-  UPDATE_MODE: 'UPDATE_MODE',
-  ADD_EVENT: 'ADD_EVENT',
-  REMOVE_EVENT: 'REMOVE_EVENT'
-}
-
-// Initial state
-const initialState = {
-  site: null,
-  loading: true,
-  error: null
-}
-
-// Reducer
-function siteReducer(state, action) {
-  switch (action.type) {
-    case SITE_ACTIONS.SET_SITE:
-      return {
-        ...state,
-        site: action.payload,
-        loading: false,
-        error: null
-      }
-    case SITE_ACTIONS.UPDATE_SITE:
-      return {
-        ...state,
-        site: { ...state.site, ...action.payload }
-      }
-    case SITE_ACTIONS.ADD_PAGE:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          pages: [...state.site.pages, action.payload]
-        }
-      }
-    case SITE_ACTIONS.REMOVE_PAGE:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          pages: state.site.pages.filter(page => page.id !== action.payload)
-        }
-      }
-    case SITE_ACTIONS.ADD_SECTION:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          pages: state.site.pages.map(page =>
-            page.id === action.payload.pageId
-              ? { ...page, sections: [...page.sections, action.payload.section] }
-              : page
-          )
-        }
-      }
-    case SITE_ACTIONS.REMOVE_SECTION:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          pages: state.site.pages.map(page =>
-            page.id === action.payload.pageId
-              ? { ...page, sections: page.sections.filter((_, index) => index !== action.payload.sectionIndex) }
-              : page
-          )
-        }
-      }
-    case SITE_ACTIONS.UPDATE_THEME:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          theme: { ...state.site.theme, ...action.payload }
-        }
-      }
-    case SITE_ACTIONS.UPDATE_PUBLISH_STATE:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          publishState: action.payload
-        }
-      }
-    case SITE_ACTIONS.UPDATE_MODE:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          mode: action.payload
-        }
-      }
-    case SITE_ACTIONS.ADD_EVENT:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          events: [...state.site.events, action.payload]
-        }
-      }
-    case SITE_ACTIONS.REMOVE_EVENT:
-      return {
-        ...state,
-        site: {
-          ...state.site,
-          events: state.site.events.filter(event => event.id !== action.payload)
-        }
-      }
-    default:
-      return state
-  }
-}
+import React, { createContext, useContext } from 'react'
+import { PlatformCoreProvider, usePlatformCore } from '../../../core/platform'
+import { CORE_ACTION_TYPES, createPlatformAction } from '../../../core/platform/actions'
 
 // Context
 const SiteContext = createContext()
 
-// Provider component
-export function SiteProvider({ children }) {
-  const [state, dispatch] = useReducer(siteReducer, initialState)
+function SiteBridge({ children }) {
+  const { currentUserId, currentSiteId, sites, dispatchPlatformAction } = usePlatformCore()
+  const site = sites?.find(siteItem => siteItem.id === currentSiteId) || null
 
-  // Load site data on mount
-  useEffect(() => {
-    try {
-      dispatch({ type: SITE_ACTIONS.SET_SITE, payload: siteData })
-    } catch (error) {
-      dispatch({ type: SITE_ACTIONS.SET_SITE, payload: null })
-      console.error('Failed to load site data:', error)
-    }
-  }, [])
-
-  // Actions
   const actions = {
-    updateSite: (updates) => dispatch({ type: SITE_ACTIONS.UPDATE_SITE, payload: updates }),
-    addPage: (page) => dispatch({ type: SITE_ACTIONS.ADD_PAGE, payload: page }),
-    removePage: (pageId) => dispatch({ type: SITE_ACTIONS.REMOVE_PAGE, payload: pageId }),
-    addSection: (pageId, section) => dispatch({ type: SITE_ACTIONS.ADD_SECTION, payload: { pageId, section } }),
-    removeSection: (pageId, sectionIndex) => dispatch({ type: SITE_ACTIONS.REMOVE_SECTION, payload: { pageId, sectionIndex } }),
-    updateTheme: (theme) => dispatch({ type: SITE_ACTIONS.UPDATE_THEME, payload: theme }),
-    updatePublishState: (publishState) => dispatch({ type: SITE_ACTIONS.UPDATE_PUBLISH_STATE, payload: publishState }),
-    updateMode: (mode) => dispatch({ type: SITE_ACTIONS.UPDATE_MODE, payload: mode }),
-    addEvent: (event) => dispatch({ type: SITE_ACTIONS.ADD_EVENT, payload: event }),
-    removeEvent: (eventId) => dispatch({ type: SITE_ACTIONS.REMOVE_EVENT, payload: eventId })
+    updateSite: (updates) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.SITE_UPDATE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: updates
+        })
+      ),
+    addPage: (page) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.PAGE_CREATE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: page
+        })
+      ),
+    removePage: (pageId) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.PAGE_REMOVE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: { pageId }
+        })
+      ),
+    addSection: (pageId, section) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.SECTION_ADD,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: { pageId, section }
+        })
+      ),
+    removeSection: (pageId, sectionIndex) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.SECTION_REMOVE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: { pageId, sectionIndex }
+        })
+      ),
+    updateTheme: (theme) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.THEME_CHANGE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: theme
+        })
+      ),
+    updatePublishState: (publishState) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.PUBLISH_STATE_UPDATE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: { publishState }
+        })
+      ),
+    updateMode: (mode) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.MODE_UPDATE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: { mode }
+        })
+      ),
+    addEvent: (event) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.EVENT_ADD,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: event
+        })
+      ),
+    removeEvent: (eventId) =>
+      dispatchPlatformAction(
+        createPlatformAction({
+          type: CORE_ACTION_TYPES.EVENT_REMOVE,
+          userId: currentUserId,
+          siteId: currentSiteId,
+          payload: { eventId }
+        })
+      )
   }
 
   const value = {
-    ...state,
+    site,
+    loading: !site,
+    error: site ? null : `Site '${currentSiteId}' not found in Platform Core`,
     ...actions
   }
 
+  return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>
+}
+
+// Provider component
+export function SiteProvider({ children }) {
   return (
-    <SiteContext.Provider value={value}>
-      {children}
-    </SiteContext.Provider>
+    <PlatformCoreProvider>
+      <SiteBridge>{children}</SiteBridge>
+    </PlatformCoreProvider>
   )
 }
 

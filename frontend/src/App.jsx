@@ -3,6 +3,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Editor from './pages/Editor'
 import Preview from './pages/Preview'
+import { PlatformAuditDebugger } from './core/platform/components/PlatformAuditDebugger'
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="editor" element={<Editor />} />
         <Route path="preview" element={<Preview />} />
+        <Route path="debug" element={<PlatformAuditDebugger />} />
       </Route>
     </Routes>
   )
