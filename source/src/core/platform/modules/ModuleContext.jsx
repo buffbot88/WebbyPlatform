@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useEffect, useReducer, useCallback } from 'react'
 import { PlatformCoreProvider, usePlatformCore } from '../PlatformCoreContext'
 import { CORE_ACTION_TYPES, createPlatformAction } from '../actions'
 import {
@@ -102,7 +103,7 @@ function moduleReducer(state, action) {
 function ModuleBridge({ children }) {
   const { currentSiteId, currentUserId, dispatchPlatformAction, sites } = usePlatformCore()
   const [state, dispatch] = useReducer(moduleReducer, initialState)
-  const site = sites?.find(s => s.id === currentSiteId)
+  
 
   // Update module state when site changes
   const updateModuleState = useCallback(() => {
@@ -288,6 +289,8 @@ export function useModuleEnabled(moduleId) {
   const { isModuleEnabled } = useModules()
   return isModuleEnabled(moduleId)
 }
+
+// (Legacy convenience hooks are provided later in this file.)
 
 // Hook to get a specific module's contributions
 export function useModule(moduleId) {

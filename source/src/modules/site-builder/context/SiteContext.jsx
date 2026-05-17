@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react'
+import { createContext, useContext } from 'react'
 import { PlatformCoreProvider, usePlatformCore } from '../../../core/platform'
 import { ModuleBridgeProvider } from '../../../core/platform/modules/ModuleContext'
 import { CORE_ACTION_TYPES, createPlatformAction } from '../../../core/platform/actions'

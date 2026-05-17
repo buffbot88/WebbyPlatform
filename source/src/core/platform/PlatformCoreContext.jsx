@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useReducer, useRef } from 'react'
+import { createContext, useContext, useEffect, useReducer, useRef } from 'react'
 import siteData from '../../data/site.json'
 import { CORE_ACTION_TYPES, validatePlatformAction } from './actions'
 import { createPluginRuntime, deepFreezeObject, sampleLoggerPlugin } from './PluginRuntime'
@@ -327,15 +327,40 @@ function platformReducer(state, action) {
 export function PlatformCoreProvider({ children, blockInvalidActions = true }) {
   const [state, dispatch] = useReducer(platformReducer, initialState)
   const stateRef = useRef(state)
-  stateRef.current = state
   const auditLogRef = useRef([])
-  const pluginRuntimeRef = useRef(createPluginRuntime({ getState: () => stateRef.current }))
+  const pluginRuntimeRef = useRef(null)
   const [, forceRerender] = useReducer((x) => x + 1, 0)
 
+  // Keep a ref of latest state for runtime code that needs synchronous access
   useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  // Initialize plugin runtime after mount (avoids creating runtime during render)
+  useEffect(() => {
+    pluginRuntimeRef.current = createPluginRuntime({ getState: () => stateRef.current })
     const unregister = pluginRuntimeRef.current.registerPlugin(sampleLoggerPlugin)
-    pluginRuntimeRef.current.processQueuedActions(dispatchPlatformAction)
-    return unregister
+    // Process any queued plugin actions using the platform dispatcher reference
+    if (typeof pluginRuntimeRef.current.processQueuedActions === 'function') {
+      pluginRuntimeRef.current.processQueuedActions((action, pluginId) => {
+        // forward to current dispatcher
+        try {
+          if (typeof dispatchPlatformActionRef.current === 'function') {
+            dispatchPlatformActionRef.current(action, pluginId)
+          }
+        } catch (err) {
+          console.warn('[PlatformCore] Error forwarding plugin queued action:', err)
+        }
+      })
+    }
+
+    return () => {
+      try {
+        unregister && unregister()
+      } catch {
+        /* ignore */
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -360,6 +385,9 @@ export function PlatformCoreProvider({ children, blockInvalidActions = true }) {
     }
   }, [])
 
+  // Keep a ref to the dispatcher so plugin runtime can call the latest version
+  const dispatchPlatformActionRef = useRef()
+
   const dispatchPlatformAction = (action) => {
     const normalizedAction = {
       ...action,
@@ -377,8 +405,8 @@ export function PlatformCoreProvider({ children, blockInvalidActions = true }) {
       return
     }
 
-    const beforeState = state
-    const afterState = platformReducer(state, normalizedAction)
+    const beforeState = stateRef.current
+    const afterState = platformReducer(beforeState, normalizedAction)
     const diff = buildStateDiff(beforeState, afterState)
     const auditEntry = {
       action: normalizedAction,
@@ -395,14 +423,23 @@ export function PlatformCoreProvider({ children, blockInvalidActions = true }) {
 
     dispatch(normalizedAction)
 
-    pluginRuntimeRef.current.runPluginsForAction({
-      action: deepFreezeObject(cloneState(normalizedAction)),
-      prevState: deepFreezeObject(cloneState(beforeState)),
-      nextState: deepFreezeObject(cloneState(afterState)),
-      auditEntry: deepFreezeObject(cloneState(auditEntry)),
-      platformDispatch: dispatchPlatformAction
-    })
+    try {
+      pluginRuntimeRef.current && pluginRuntimeRef.current.runPluginsForAction({
+        action: deepFreezeObject(cloneState(normalizedAction)),
+        prevState: deepFreezeObject(cloneState(beforeState)),
+        nextState: deepFreezeObject(cloneState(afterState)),
+        auditEntry: deepFreezeObject(cloneState(auditEntry)),
+        platformDispatch: dispatchPlatformAction
+      })
+    } catch (error) {
+      console.warn('[PlatformCore] Error running plugins for action:', error)
+    }
   }
+
+  // ensure dispatcher ref is kept up-to-date for plugin queued handlers
+  useEffect(() => {
+    dispatchPlatformActionRef.current = dispatchPlatformAction
+  }, [dispatchPlatformAction])
 
   const getAuditLog = () => [...auditLogRef.current]
   const clearAuditLog = () => {
@@ -431,12 +468,12 @@ export function PlatformCoreProvider({ children, blockInvalidActions = true }) {
   const value = {
     ...deepFreezeObject(cloneState(state)),
     dispatchPlatformAction,
-    auditLog: auditLogRef.current,
     getAuditLog,
     clearAuditLog,
     importAuditLog,
-    registerPlugin: pluginRuntimeRef.current.registerPlugin,
-    getRegisteredPlugins: pluginRuntimeRef.current.getRegisteredPlugins
+    // Expose plugin runtime accessors as functions that resolve at call time
+    registerPlugin: (...args) => pluginRuntimeRef.current?.registerPlugin(...args),
+    getRegisteredPlugins: () => pluginRuntimeRef.current?.getRegisteredPlugins?.()
   }
 
   return <PlatformCoreContext.Provider value={value}>{children}</PlatformCoreContext.Provider>
@@ -451,9 +488,9 @@ export function usePlatformCore() {
 }
 
 export function usePlatformAuditLog() {
-  const { auditLog, getAuditLog, clearAuditLog, importAuditLog } = usePlatformCore()
+  const { getAuditLog, clearAuditLog, importAuditLog } = usePlatformCore()
   return {
-    auditLog,
+    auditLog: getAuditLog(),
     getAuditLog,
     clearAuditLog,
     importAuditLog

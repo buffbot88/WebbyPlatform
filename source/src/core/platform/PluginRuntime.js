@@ -83,11 +83,9 @@ export function createPluginRuntime({ getState }) {
     }
   }
 
-  const runPluginsForAction = ({ action, prevState, nextState, auditEntry, platformDispatch }) => {
+  const runPluginsForAction = ({ action, prevState: _prevState, nextState, auditEntry: _auditEntry, platformDispatch }) => {
     const frozenAction = deepFreezeObject({ ...action })
-    const frozenPrevState = deepFreezeObject({ ...prevState })
     const frozenNextState = deepFreezeObject({ ...nextState })
-    const frozenAuditEntry = deepFreezeObject({ ...auditEntry })
 
     plugins.forEach((plugin) => {
       const api = createPluginApi(plugin.name)

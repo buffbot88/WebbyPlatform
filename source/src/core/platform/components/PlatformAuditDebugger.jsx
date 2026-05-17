@@ -140,7 +140,10 @@ function StateReplayPanel({ auditLog }) {
 
   useEffect(() => {
     if (selectedIndex >= auditLog.length) {
-      setSelectedIndex(Math.max(0, auditLog.length - 1))
+      // Avoid calling setState synchronously inside effect to prevent cascading renders
+      setTimeout(() => {
+        setSelectedIndex(Math.max(0, auditLog.length - 1))
+      }, 0)
     }
   }, [auditLog.length, selectedIndex])
 

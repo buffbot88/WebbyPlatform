@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
  * EventForm Component
@@ -24,34 +24,37 @@ export function EventForm({ event, onSubmit, onCancel, isOpen }) {
     if (event) {
       const startDate = new Date(event.startDate)
       const endDate = event.endDate ? new Date(event.endDate) : startDate
-
-      setFormData({
-        title: event.title || '',
-        description: event.description || '',
-        startDate: startDate.toISOString().split('T')[0],
-        endDate: endDate.toISOString().split('T')[0],
-        startTime: startDate.toTimeString().slice(0, 5),
-        endTime: endDate.toTimeString().slice(0, 5),
-        location: event.location || '',
-        color: event.color || '#4f46e5',
-        recurring: event.recurring || ''
-      })
+      setTimeout(() => {
+        setFormData({
+          title: event.title || '',
+          description: event.description || '',
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+          startTime: startDate.toTimeString().slice(0, 5),
+          endTime: endDate.toTimeString().slice(0, 5),
+          location: event.location || '',
+          color: event.color || '#4f46e5',
+          recurring: event.recurring || ''
+        })
+      }, 0)
     } else {
       // Reset form for new event
       const now = new Date()
       const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
-      setFormData({
-        title: '',
-        description: '',
-        startDate: now.toISOString().split('T')[0],
-        endDate: tomorrow.toISOString().split('T')[0],
-        startTime: '09:00',
-        endTime: '10:00',
-        location: '',
-        color: '#4f46e5',
-        recurring: ''
-      })
+      setTimeout(() => {
+        setFormData({
+          title: '',
+          description: '',
+          startDate: now.toISOString().split('T')[0],
+          endDate: tomorrow.toISOString().split('T')[0],
+          startTime: '09:00',
+          endTime: '10:00',
+          location: '',
+          color: '#4f46e5',
+          recurring: ''
+        })
+      }, 0)
     }
   }, [event, isOpen])
 

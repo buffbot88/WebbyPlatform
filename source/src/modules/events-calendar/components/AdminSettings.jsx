@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { usePlatformCore } from '../../../core/platform/PlatformCoreContext'
 import { useModuleEnabled } from '../../../core/platform/modules/ModuleContext'
 import {

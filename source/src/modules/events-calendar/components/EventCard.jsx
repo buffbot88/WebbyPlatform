@@ -1,4 +1,4 @@
-import React from 'react'
+// React not required (automatic JSX runtime)
 
 /**
  * EventCard Component

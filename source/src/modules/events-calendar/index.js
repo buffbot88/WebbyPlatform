@@ -43,11 +43,11 @@ export const eventsCalendarModule = {
     console.log(`[Events Calendar] Module ${moduleId} initialized`)
   },
 
-  onEnable({ siteId, moduleId }) {
+  onEnable({ siteId }) {
     console.log(`[Events Calendar] Module enabled for site ${siteId}`)
   },
 
-  onDisable({ siteId, moduleId }) {
+  onDisable({ siteId }) {
     console.log(`[Events Calendar] Module disabled for site ${siteId}`)
   },
 

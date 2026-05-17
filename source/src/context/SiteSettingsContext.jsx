@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react'
 
 const SiteSettingsContext = createContext(null)
@@ -74,7 +75,9 @@ export function SiteSettingsProvider({ children }) {
       const next = { ...prev, ...patch }
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      } catch {}
+      } catch (err) {
+        console.warn('[SiteSettings] Failed to persist settings', err)
+      }
       return next
     })
   }

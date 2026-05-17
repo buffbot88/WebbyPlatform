@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-hooks/static-components */
+
 // Section registry - maps section types to components
 const sectionRegistry = new Map()
 

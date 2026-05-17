@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { usePlatformCore } from '../../../core/platform/PlatformCoreContext'
 import { EventCard } from './EventCard'
 

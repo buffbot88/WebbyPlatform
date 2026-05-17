@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { EventCard } from './EventCard'
 
 /**
@@ -6,7 +6,7 @@ import { EventCard } from './EventCard'
  * 
  * Displays a calendar with events. Supports month, week, and day views.
  */
-export function CalendarView({ events = [], onEventClick, onEventEdit, onEventDelete, onDateSelect }) {
+export function CalendarView({ events = [], onEventClick, onEventEdit, onEventDelete }) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState('month') // 'month', 'week', 'day'
 
@@ -98,10 +98,6 @@ export function CalendarView({ events = [], onEventClick, onEventEdit, onEventDe
 
   const formatMonthName = () => {
     return currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })
-  }
-
-  const formatWeekDay = (day) => {
-    return day.toLocaleString('default', { weekday: 'short' })
   }
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']

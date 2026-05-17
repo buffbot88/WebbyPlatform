@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { usePlatformCore } from '../../../core/platform/PlatformCoreContext'
 import { useModuleEnabled } from '../../../core/platform/modules/ModuleContext'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSite } from '../modules/site-builder/context/SiteContext'
-import { usePages, useEvents, useTheme } from '../modules/site-builder/hooks/useSiteOperations'
+import { usePages, useEvents } from '../modules/site-builder/hooks/useSiteOperations'
 import { SiteSettings } from '../modules/site-builder/components/SiteSettings'
 import { useDashboardPanels, useModules } from '../core/platform/modules'
 import { DashboardPanel } from '../modules/events-calendar/components/DashboardPanel'
@@ -15,11 +15,11 @@ function ModuleDashboardPanel({ panel }) {
 }
 
 export default function Dashboard() {
-  const { site, loading } = useSite()
+  const { loading } = useSite()
   const { pages } = usePages()
   const { events } = useEvents()
   const dashboardPanels = useDashboardPanels()
-  const { getAllModules, getEnabledModules, getDisabledModules, enableModule, disableModule } = useModules()
+  const { getEnabledModules, getDisabledModules, enableModule, disableModule } = useModules()
   const { settings, updateSettings } = useSiteSettings()
   const [nameInput, setNameInput] = useState(settings.siteName)
   const [savedName, setSavedName] = useState(false)
