@@ -1,0 +1,21 @@
+{
+  "id": "demo",
+  "siteId": "demo",
+  "mode": "single",
+  "publishState": "draft",
+  "theme": {
+    "primaryColor": "#4f46e5",
+    "font": "inter",
+    "style": "modern"
+  },
+  "pages": [
+    {
+      "id": "home",
+      "name": "Home",
+      "sections": []
+    }
+  ],
+  "events": [],
+  "enabledModules": [],
+  "calendarEvents": []
+}
