@@ -2,7 +2,8 @@ const AdminSystemCore = (() => {
 
   const state = {
     authed: localStorage.getItem("admin_auth") === "true",
-    user: null
+    user: null,
+    pendingRoute: null
   };
 
   const el = (id) => document.getElementById(id);
@@ -27,7 +28,8 @@ const AdminSystemCore = (() => {
           </div>
         </div>
       `;
-      document.body.appendChild(div);
+      const container = document.getElementById("overlayLayer") || document.body;
+      container.appendChild(div);
 
       div.querySelector("#adminLoginBtn").onclick = () => login();
     }
@@ -47,6 +49,10 @@ const AdminSystemCore = (() => {
       localStorage.setItem("admin_auth", "true");
       state.authed = true;
       hideLogin();
+      if (state.pendingRoute) {
+        window.Runtime?.navigate(state.pendingRoute);
+        state.pendingRoute = null;
+      }
     }
 
     return ok;
@@ -61,6 +67,7 @@ const AdminSystemCore = (() => {
   function requireAuth(route) {
     syncUI();
     if (route?.auth && !state.authed) {
+      state.pendingRoute = route.id || null;
       showLogin();
       return false;
     }

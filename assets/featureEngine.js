@@ -13,7 +13,8 @@ const FeatureEngine = (() => {
       .map(fn => {
         try {
           return fn(ctx);
-        } catch {
+        } catch (err) {
+          Diagnostics.error("[FeatureEngine] feature render failed", err);
           return "";
         }
       })
