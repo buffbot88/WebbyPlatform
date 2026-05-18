@@ -148,9 +148,216 @@ const Runtime = (() => {
     };
   }
 
+  function normalizeHealthRecords(records) {
+    return (records || []).map((entry) => ({
+      id: entry.moduleId || entry.pluginId || null,
+      quarantined: !!entry.quarantined,
+      disabled: !!entry.disabled,
+      status: entry.status || null
+    })).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  }
+
+  function normalizeRegistry(routes) {
+    return Object.entries(routes || {}).sort().map(([key, route]) => ({
+      key,
+      enabled: route.enabled !== false,
+      layout: route.layout || null,
+      auth: route.auth === true,
+      id: route.id || key
+    }));
+  }
+
+  function detectStateDrift() {
+    const actual = {
+      config: ConfigLoader.get(),
+      registry: RegistryEngine.getAll(),
+      moduleHealth: ModuleLoader.getHealth(),
+      pluginHealth: PluginEngine.getHealth(),
+      safeMode: { ...safeMode },
+      activeRoute: state.route,
+      booted,
+      diagnostics: {
+        logs: Diagnostics.getLogs().length,
+        warnings: Diagnostics.getWarnings().length,
+        errors: Diagnostics.getErrors().length
+      }
+    };
+
+    const drift = [];
+    if (JSON.stringify(actual.config) !== JSON.stringify(sharedState.config)) drift.push("config");
+    if (JSON.stringify(normalizeRegistry(actual.registry)) !== JSON.stringify(normalizeRegistry(sharedState.registry))) drift.push("registry");
+    if (JSON.stringify(normalizeHealthRecords(actual.moduleHealth)) !== JSON.stringify(normalizeHealthRecords(sharedState.moduleHealth))) drift.push("moduleHealth");
+    if (JSON.stringify(normalizeHealthRecords(actual.pluginHealth)) !== JSON.stringify(normalizeHealthRecords(sharedState.pluginHealth))) drift.push("pluginHealth");
+    if (JSON.stringify(actual.safeMode) !== JSON.stringify(sharedState.safeMode)) drift.push("safeMode");
+    if (actual.activeRoute !== sharedState.activeRoute) drift.push("activeRoute");
+    if (actual.booted !== sharedState.booted) drift.push("booted");
+    if (actual.diagnostics.logs !== sharedState.diagnostics.logs) drift.push("diagnostics.logs");
+    if (actual.diagnostics.warnings !== sharedState.diagnostics.warnings) drift.push("diagnostics.warnings");
+    if (actual.diagnostics.errors !== sharedState.diagnostics.errors) drift.push("diagnostics.errors");
+
+    if (drift.length) {
+      Diagnostics.warn("[Runtime] shared state drift detected", { drift });
+    }
+    return drift;
+  }
+
+  function validateSharedState() {
+    const drift = detectStateDrift();
+    if (drift.length) {
+      updateRuntimeState();
+    }
+    return { drift, shared: cloneValue(sharedState) };
+  }
+
+  function injectFailure(type) {
+    switch (type) {
+      case "missing-module": {
+        ModuleLoader.load({ id: "__validation_missing_module__", layout: "default", features: [] }, { state });
+        break;
+      }
+      case "invalid-route": {
+        navigate("__validation_invalid_route__", { updateHash: false });
+        break;
+      }
+      case "plugin-crash": {
+        const crashPlugin = {
+          init() {},
+          mount() {
+            throw new Error("Injected plugin crash");
+          }
+        };
+        PluginEngine.register("__validation_plugin_crash__", crashPlugin);
+        PluginEngine.mountAll({ state });
+        break;
+      }
+      case "malformed-config": {
+        ConfigLoader.apply({ bad: "payload" });
+        break;
+      }
+      default: {
+        Diagnostics.warn("[Runtime] unknown failure injection type", { type });
+      }
+    }
+    updateRuntimeState();
+  }
+
+  async function runRecoveryValidation() {
+    await navigate("__validation_invalid_route__", { updateHash: false });
+    await navigate("__validation_invalid_route__", { updateHash: false });
+    await navigate("__validation_invalid_route__", { updateHash: false });
+    return validateSharedState();
+  }
+
+  function auditNavigationIntegrity() {
+    const registry = RegistryEngine.getAll() || {};
+    const issues = [];
+    const ids = new Map();
+
+    Object.entries(registry).forEach(([name, route]) => {
+      const id = typeof route?.id === "string" && route.id.trim() ? route.id : name;
+      if (ids.has(id)) {
+        issues.push(`duplicate route id ${id} between ${ids.get(id)} and ${name}`);
+      } else {
+        ids.set(id, name);
+      }
+      if (route?.type !== "page") {
+        issues.push(`route ${name} has invalid type ${route?.type}`);
+      }
+      if (typeof route?.layout !== "string" || !route.layout.trim()) {
+        issues.push(`route ${name} missing or invalid layout`);
+      }
+      if (!window.ModuleRegistry?.[id]) {
+        issues.push(`route ${name} points to missing module ${id}`);
+      }
+    });
+
+    const fallback = getFallbackRouteName();
+    if (!fallback) {
+      issues.push("no fallback route available");
+    }
+
+    const currentHash = getHashRoute();
+    if (currentHash && !RegistryEngine.resolveRoute(currentHash)) {
+      issues.push(`hash route ${currentHash} is not resolvable`);
+    }
+
+    if (issues.length) {
+      Diagnostics.warn("[Runtime] navigation integrity issues detected", { issues });
+    }
+    return { issues, fallback };
+  }
+
+  async function runStabilityCheck(iterations = 3) {
+    const routeNames = Object.keys(RegistryEngine.getAll() || {});
+    const pluginIds = PluginEngine.getHealth().map(entry => entry.pluginId);
+    const moduleIds = ModuleLoader.getHealth().map(entry => entry.moduleId);
+    const report = [];
+
+    const togglePlugin = (id) => {
+      const record = PluginEngine.getHealth().find(entry => entry.pluginId === id);
+      if (!record) return false;
+      return PluginEngine.setPluginEnabled(id, !record.disabled);
+    };
+
+    const toggleModule = (id) => {
+      const record = ModuleLoader.getHealth().find(entry => entry.moduleId === id);
+      if (!record) return false;
+      return ModuleLoader.setModuleEnabled(id, !record.adminDisabled);
+    };
+
+    for (let idx = 0; idx < iterations; idx += 1) {
+      const route = routeNames[idx % routeNames.length];
+      if (route) {
+        await navigate(route, { updateHash: false });
+      }
+
+      if (pluginIds.length) {
+        const pluginId = pluginIds[idx % pluginIds.length];
+        const before = PluginEngine.getHealth().find(entry => entry.pluginId === pluginId);
+        const toggled = togglePlugin(pluginId);
+        togglePlugin(pluginId);
+        report.push({ type: "plugin-toggle", pluginId, toggled, beforeState: before });
+      }
+
+      if (moduleIds.length) {
+        const moduleId = moduleIds[idx % moduleIds.length];
+        const before = ModuleLoader.getHealth().find(entry => entry.moduleId === moduleId);
+        const toggled = toggleModule(moduleId);
+        toggleModule(moduleId);
+        report.push({ type: "module-toggle", moduleId, toggled, beforeState: before });
+      }
+
+      const drift = validateSharedState().drift;
+      report.push({ iteration: idx + 1, drift });
+    }
+
+    if (report.some(item => item.drift && item.drift.length)) {
+      Diagnostics.warn("[Runtime] stability check detected drift during repeated operations", { report });
+    }
+
+    return report;
+  }
+
+  async function runSystemValidationSuite(options = {}) {
+    const initial = validateSharedState();
+    const navigation = auditNavigationIntegrity();
+    const failures = [];
+    for (const type of ["missing-module", "invalid-route", "plugin-crash", "malformed-config"]) {
+      injectFailure(type);
+      failures.push({ type, drift: validateSharedState().drift });
+    }
+    const recovery = await runRecoveryValidation();
+    const stability = await runStabilityCheck(options.iterations || 3);
+
+    const summary = { initial, navigation, failures, recovery, stability };
+    Diagnostics.info("[Runtime] system validation suite completed", summary);
+    return summary;
+  }
+
   function updateRuntimeState(update = {}) {
     const nextState = buildSharedState(update);
     Object.assign(sharedState, nextState);
+    detectStateDrift();
     if (window.RuntimeInspector?.refresh) {
       window.RuntimeInspector.refresh();
     }
@@ -310,13 +517,12 @@ const Runtime = (() => {
     getState,
     getSharedState,
     updateRuntimeState,
-    safeMode
-  };
-
-  return {
-    init,
-    navigate,
-    getState,
+    validateSharedState,
+    injectFailure,
+    auditNavigationIntegrity,
+    runRecoveryValidation,
+    runStabilityCheck,
+    runSystemValidationSuite,
     safeMode
   };
 

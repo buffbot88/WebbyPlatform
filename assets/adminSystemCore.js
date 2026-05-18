@@ -105,7 +105,7 @@ const AdminSystemCore = (() => {
 
   function updateButtonState() {
     if (!button) return;
-    const enabled = ConfigLoader.get()?.admin?.enabled !== false;
+    const enabled = getSharedState().config?.admin?.enabled !== false;
     button.style.display = enabled ? "block" : "none";
     button.textContent = state.authed ? "Admin Panel" : "Admin Login";
   }
