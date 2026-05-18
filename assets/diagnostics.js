@@ -1,4 +1,19 @@
 const Diagnostics = (() => {
+  const logs = [];
+  const warnings = [];
+  const errors = [];
+
+  function record(target, type, message, data) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      data: data ?? null
+    };
+    target.push(entry);
+    return entry;
+  }
+
   function escapeText(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -9,15 +24,22 @@ const Diagnostics = (() => {
   }
 
   function info(message, data) {
+    const entry = record(logs, "info", message, data);
     console.info("[Diagnostics]", message, data ?? "");
+    return entry;
   }
 
   function warn(message, data) {
+    const entry = record(warnings, "warn", message, data);
     console.warn("[Diagnostics]", message, data ?? "");
+    return entry;
   }
 
   function error(message, data) {
+    const entry = record(errors, "error", message, data);
     console.error("[Diagnostics]", message, data ?? "");
+    Lifecycle?.emit?.("runtime:error", { message, data });
+    return entry;
   }
 
   function renderError(message) {
@@ -31,12 +53,30 @@ const Diagnostics = (() => {
     `;
   }
 
+  function getLogs() {
+    return logs.slice();
+  }
+
+  function getWarnings() {
+    return warnings.slice();
+  }
+
+  function getErrors() {
+    return errors.slice();
+  }
+
   return {
     info,
     warn,
     error,
     renderError,
-    escapeText
+    escapeText,
+    getLogs,
+    getWarnings,
+    getErrors,
+    logs,
+    warnings,
+    errors
   };
 })();
 

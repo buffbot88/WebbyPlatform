@@ -76,11 +76,50 @@ const RegistryEngine = (() => {
     return Object.keys(validRoutes).length > 0;
   }
 
+  function inspect() {
+    const report = {
+      duplicateRoutes: [],
+      invalidContracts: [],
+      disabledRoutes: [],
+      missingLayouts: [],
+      missingModules: []
+    };
+
+    const ids = new Map();
+    for (const [name, route] of Object.entries(registry || {})) {
+      const routeId = typeof route?.id === "string" && route.id.trim() ? route.id : name;
+      if (ids.has(routeId)) {
+        report.duplicateRoutes.push(`${routeId} appears as ${ids.get(routeId)} and ${name}`);
+      } else {
+        ids.set(routeId, name);
+      }
+
+      if (!isValidRoute(name, route)) {
+        report.invalidContracts.push(`${name} has invalid route contract`);
+      }
+
+      if (route?.enabled === false) {
+        report.disabledRoutes.push(name);
+      }
+
+      if (typeof route?.layout !== "string" || !route.layout.trim()) {
+        report.missingLayouts.push(name);
+      }
+
+      if (!window.ModuleRegistry?.[routeId]) {
+        report.missingModules.push(name);
+      }
+    }
+
+    return report;
+  }
+
   return {
     load,
     getAll,
     resolveRoute,
-    validate
+    validate,
+    inspect
   };
 
 })();
