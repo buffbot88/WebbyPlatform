@@ -1,0 +1,184 @@
+:root {
+  --bg: #f4f8ff;
+  --panel: #ffffff;
+  --text: #0f172a;
+
+  --muted: #64748b;
+
+  --primary: #3b82f6;
+  --primary-soft: rgba(59, 130, 246, 0.12);
+
+  --border: rgba(15, 23, 42, 0.08);
+
+  --radius: 10px;
+
+  --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 4px 12px rgba(15, 23, 42, 0.06);
+
+  --glow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+/* =========================================================
+   BASE
+========================================================= */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* =========================================================
+   GLOBAL LAYOUT ROOT
+========================================================= */
+
+#app {
+  min-height: 100vh;
+}
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+button {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text);
+  transition: 0.15s ease;
+}
+
+button:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+button.primary {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-soft);
+}
+
+button.primary:hover {
+  filter: brightness(1.05);
+}
+
+/* =========================================================
+   INPUTS
+========================================================= */
+
+input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  outline: none;
+  background: white;
+}
+
+input:focus {
+  box-shadow: var(--glow);
+  border-color: var(--primary);
+}
+
+/* =========================================================
+   LAYOUT BASE
+========================================================= */
+
+.layout {
+  min-height: 100vh;
+}
+
+/* =========================================================
+   DEFAULT LAYOUT
+========================================================= */
+
+.layout-default header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+/* =========================================================
+   DASHBOARD LAYOUT
+========================================================= */
+
+.layout-dashboard {
+  display: flex;
+  min-height: 100vh;
+}
+
+.layout-dashboard aside {
+  background: #0b1220;
+  color: white;
+  padding: 16px;
+}
+
+.layout-dashboard aside button {
+  color: #cbd5e1;
+  text-align: left;
+  width: 100%;
+}
+
+.layout-dashboard aside button:hover {
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
+
+.layout-dashboard main {
+  background: var(--bg);
+}
+
+/* =========================================================
+   MODULE CARDS
+========================================================= */
+
+.module {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.module .features {
+  display: flex;
+  gap: 10px;
+}
+
+.module .content {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+}
+
+/* =========================================================
+   ADMIN MODAL
+========================================================= */
+
+#adminLoginModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+#adminLoginModal > div {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  width: 280px;
+}
+
+/* =========================================================
+   UTILITIES
+========================================================= */
+
+.muted {
+  color: var(--muted);
+}

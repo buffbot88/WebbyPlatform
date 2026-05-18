@@ -1,0 +1,28 @@
+{
+  "home": {
+    "id": "home",
+    "type": "page",
+    "layout": "default",
+    "auth": false,
+    "enabled": true,
+    "features": []
+  },
+
+  "dashboard": {
+    "id": "dashboard",
+    "type": "page",
+    "layout": "dashboard",
+    "auth": true,
+    "enabled": true,
+    "features": []
+  },
+
+  "settings": {
+    "id": "settings",
+    "type": "page",
+    "layout": "dashboard",
+    "auth": true,
+    "enabled": true,
+    "features": []
+  }
+}

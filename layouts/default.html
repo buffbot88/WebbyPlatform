@@ -1,0 +1,22 @@
+<div class="layout layout-default" style="min-height:100vh; display:flex; flex-direction:column;">
+
+  <!-- TOP BAR (simple system-safe header) -->
+  <header style="padding:12px 16px; border-bottom:1px solid rgba(0,0,0,0.08); display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+
+    <div style="font-weight:600;">
+      WebbyPlatform
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button onclick="Runtime.navigate('home')">Home</button>
+      <button onclick="Runtime.navigate('dashboard')">Dashboard</button>
+    </div>
+
+  </header>
+
+  <!-- MAIN SLOT -->
+  <main id="layout-slot" style="flex:1; padding:16px;">
+    {{slot:main}}
+  </main>
+
+</div>
