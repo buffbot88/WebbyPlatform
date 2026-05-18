@@ -10,6 +10,7 @@ const ModuleLoader = (() => {
         failureCount: 0,
         quarantined: false,
         quarantinedUntil: null,
+        adminDisabled: false,
         lastError: null,
         lastLoaded: null
       });
@@ -53,6 +54,15 @@ const ModuleLoader = (() => {
     return getModuleRecord(moduleId).quarantined;
   }
 
+  function setModuleEnabled(moduleId, enabled) {
+    if (!moduleId || typeof enabled !== "boolean") return false;
+    const record = getModuleRecord(moduleId);
+    record.adminDisabled = enabled === false ? true : false;
+    Diagnostics.info("[ModuleLoader] module admin disabled state updated", { moduleId, disabled: record.adminDisabled });
+    Lifecycle.emit("module:load", { moduleId, status: record.adminDisabled ? "disabled" : "loaded" });
+    return true;
+  }
+
   function getHealth() {
     return Array.from(moduleHealth.values()).map(record => ({ ...record }));
   }
@@ -64,6 +74,12 @@ const ModuleLoader = (() => {
 
     const moduleId = route.id || "unknown";
     const record = getModuleRecord(moduleId);
+
+    if (record.adminDisabled) {
+      Diagnostics.warn("[ModuleLoader] module disabled by admin", moduleId);
+      Lifecycle.emit("module:load", { moduleId, status: "disabled" });
+      return `<div class="module-error">Module disabled by admin: ${Diagnostics.escapeText(moduleId)}</div>`;
+    }
 
     if (record.quarantined) {
       Diagnostics.warn("[ModuleLoader] quarantined module blocked", moduleId);
@@ -110,7 +126,8 @@ const ModuleLoader = (() => {
 
   return {
     load,
-    getHealth
+    getHealth,
+    setModuleEnabled
   };
 
 })();

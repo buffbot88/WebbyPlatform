@@ -11,6 +11,7 @@ const PluginEngine = (() => {
         failureCount: 0,
         quarantined: false,
         disabledAt: null,
+        disabled: false,
         lastError: null,
         status: "registered"
       };
@@ -30,6 +31,7 @@ const PluginEngine = (() => {
         failureCount: 0,
         quarantined: false,
         disabledAt: null,
+        disabled: false,
         lastError: null,
         status: "registered"
       }
@@ -55,6 +57,12 @@ const PluginEngine = (() => {
       if (entry.health.quarantined) {
         Diagnostics.warn("[PluginEngine] plugin mount skipped because quarantined", { id });
         Lifecycle.emit("plugin:mount", { pluginId: id, status: "quarantined" });
+        continue;
+      }
+
+      if (entry.health.disabled) {
+        Diagnostics.warn("[PluginEngine] plugin mount skipped because disabled", { id });
+        Lifecycle.emit("plugin:mount", { pluginId: id, status: "disabled" });
         continue;
       }
 
@@ -86,13 +94,25 @@ const PluginEngine = (() => {
 
   function trigger(event, data) {
     for (const [id, entry] of plugins.entries()) {
-      if (entry.health.quarantined) continue;
+      if (entry.health.quarantined || entry.health.disabled) continue;
       try {
         entry.instance?.onEvent?.(event, data);
       } catch (err) {
         Diagnostics.error("[PluginEngine] plugin event failed", { id, event, error: err });
       }
     }
+  }
+
+  function setPluginEnabled(id, enabled) {
+    const entry = getPluginRecord(id);
+    if (!entry || typeof enabled !== "boolean") return false;
+    entry.health.disabled = enabled === false ? true : false;
+    entry.health.status = entry.health.disabled ? "admin_disabled" : "registered";
+    if (entry.health.disabled) {
+      entry.health.disabledAt = Date.now();
+    }
+    Diagnostics.info("[PluginEngine] plugin admin disabled state updated", { id, disabled: entry.health.disabled });
+    return true;
   }
 
   function getHealth() {
@@ -106,7 +126,8 @@ const PluginEngine = (() => {
     register,
     mountAll,
     trigger,
-    getHealth
+    getHealth,
+    setPluginEnabled
   };
 
 })();

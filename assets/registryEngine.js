@@ -64,12 +64,36 @@ const RegistryEngine = (() => {
     return validRoutes;
   }
 
+  function getRaw(name) {
+    if (typeof name !== "string") return { ...registry };
+    return registry[name] ? { ...registry[name] } : null;
+  }
+
   function resolveRoute(name) {
     if (typeof name !== "string") return null;
     const route = validRoutes[name];
     if (!route || route.type !== "page") return null;
     if (route.enabled === false) return null;
     return normalizeRoute(name, route);
+  }
+
+  function setRouteEnabled(name, enabled) {
+    if (!validRoutes[name]) return false;
+    if (typeof enabled !== "boolean") return false;
+    registry[name] = { ...registry[name], enabled };
+    validRoutes[name] = normalizeRoute(name, { ...validRoutes[name], enabled });
+    Diagnostics.info("[RegistryEngine] route enabled state updated", { route: name, enabled });
+    return true;
+  }
+
+  function updateRoute(name, updates) {
+    if (!validRoutes[name] || !updates || typeof updates !== "object") return false;
+    const merged = { ...registry[name], ...updates };
+    if (!isValidRoute(name, merged)) return false;
+    registry[name] = merged;
+    validRoutes[name] = normalizeRoute(name, merged);
+    Diagnostics.info("[RegistryEngine] route updated via admin", { route: name, updates });
+    return true;
   }
 
   function validate() {
@@ -117,7 +141,10 @@ const RegistryEngine = (() => {
   return {
     load,
     getAll,
+    getRaw,
     resolveRoute,
+    setRouteEnabled,
+    updateRoute,
     validate,
     inspect
   };

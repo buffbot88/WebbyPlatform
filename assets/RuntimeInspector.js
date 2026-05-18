@@ -31,7 +31,8 @@ const RuntimeInspector = (() => {
       disabledRoutes: [],
       missingLayouts: [],
       missingModules: []
-    }
+    },
+    filterType: "all"
   };
 
   let panel = null;
@@ -135,10 +136,25 @@ const RuntimeInspector = (() => {
     `;
   }
 
+  function renderLogToolbar() {
+    const types = ["all", "info", "warn", "error"];
+    return `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        ${types.map(type => `<button onclick="window.RuntimeInspector.toggleFilter('${type}')" style="padding:6px 10px;border:none;border-radius:8px;background:${state.filterType === type ? `#2563eb` : `#334155`};color:#f8fafc;cursor:pointer;">${Diagnostics.escapeText(type)}</button>`).join("")}
+        <button onclick="window.AdminSystemCore.openPanel()" style="padding:6px 10px;border:none;border-radius:8px;background:#16a34a;color:#f8fafc;cursor:pointer;">Admin Panel</button>
+      </div>
+    `;
+  }
+
+  function filterLogs(items) {
+    if (state.filterType === "all") return items;
+    return items.filter(item => item.type === state.filterType);
+  }
+
   function refreshDiagnostics() {
-    state.runtimeWarnings = Diagnostics.warnings.slice(-10);
-    state.runtimeErrors = Diagnostics.errors.slice(-10);
-    state.runtimeLogs = Diagnostics.logs.slice(-10);
+    state.runtimeWarnings = Diagnostics.getWarnings().slice(-20);
+    state.runtimeErrors = Diagnostics.getErrors().slice(-20);
+    state.runtimeLogs = Diagnostics.getLogs().slice(-20);
   }
 
   function refreshSafeMode() {
@@ -206,9 +222,10 @@ const RuntimeInspector = (() => {
         <button style="border:none; background:#0f172a; color:#f8fafc; padding:4px 8px; border-radius:8px; cursor:pointer;" onclick="window.RuntimeInspector.toggle()">${visible ? "Hide" : "Show"}</button>
       </div>
       ${renderSection("Boot status", `<div>${Diagnostics.escapeText(state.bootStatus)}</div>`)}
-      ${renderSection("Registered routes", renderRouteTable(RegistryEngine.getAll()))}
       ${renderSection("Active route", `<div>${Diagnostics.escapeText(state.activeRoute || "None")}</div>`)}
       ${renderSection("Current layout", `<div>${Diagnostics.escapeText(state.currentLayout || "None")}</div>`)}
+      ${renderSection("Runtime events", `${renderLogToolbar()}${renderList(logEntries.map(entry => `${entry.timestamp} - ${entry.type.toUpperCase()}: ${entry.message}`), "No events")}`)}
+      ${renderSection("Registered routes", renderRouteTable(RegistryEngine.getAll()))}
       ${renderSection("Loaded plugins", renderList(state.loadedPlugins))}
       ${renderSection("Loaded modules", renderList(state.loadedModules))}
       ${renderSection("Loaded features", renderList(state.loadedFeatures))}
@@ -229,9 +246,6 @@ const RuntimeInspector = (() => {
         <div style="font-size:12px; margin:8px 0 6px 0;">Missing modules</div>
         ${renderList(state.registryDiagnostics.missingModules)}
       `)}
-      ${renderSection("Recent logs", renderList(state.runtimeLogs.map(e => `${e.timestamp} - ${e.message}`), "No logs"))}
-      ${renderSection("Recent warnings", renderList(state.runtimeWarnings.map(e => `${e.timestamp} - ${e.message}`), "No warnings"))}
-      ${renderSection("Recent errors", renderList(state.runtimeErrors.map(e => `${e.timestamp} - ${e.message}`), "No errors"))}
       ${diagnosticsSummary}
     `;
   }
@@ -313,6 +327,7 @@ const RuntimeInspector = (() => {
   return {
     init,
     toggle,
+    toggleFilter,
     getState: () => ({ ...state }),
     addFeature,
     addModule,
