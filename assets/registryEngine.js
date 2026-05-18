@@ -83,6 +83,9 @@ const RegistryEngine = (() => {
     registry[name] = { ...registry[name], enabled };
     validRoutes[name] = normalizeRoute(name, { ...validRoutes[name], enabled });
     Diagnostics.info("[RegistryEngine] route enabled state updated", { route: name, enabled });
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ registry: validRoutes });
+    }
     return true;
   }
 
@@ -93,6 +96,9 @@ const RegistryEngine = (() => {
     registry[name] = merged;
     validRoutes[name] = normalizeRoute(name, merged);
     Diagnostics.info("[RegistryEngine] route updated via admin", { route: name, updates });
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ registry: validRoutes });
+    }
     return true;
   }
 

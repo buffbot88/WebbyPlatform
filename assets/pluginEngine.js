@@ -90,6 +90,9 @@ const PluginEngine = (() => {
         }
       }
     }
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ pluginHealth: getHealth() });
+    }
   }
 
   function trigger(event, data) {
@@ -112,6 +115,9 @@ const PluginEngine = (() => {
       entry.health.disabledAt = Date.now();
     }
     Diagnostics.info("[PluginEngine] plugin admin disabled state updated", { id, disabled: entry.health.disabled });
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ pluginHealth: getHealth() });
+    }
     return true;
   }
 

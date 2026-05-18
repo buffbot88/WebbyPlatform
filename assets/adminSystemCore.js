@@ -182,7 +182,8 @@ const AdminSystemCore = (() => {
   }
 
   function openPanel() {
-    if (!ConfigLoader.get()?.admin?.enabled) return;
+    const shared = getSharedState();
+    if (!shared.config?.admin?.enabled) return;
     if (!state.authed) {
       showLogin();
       return;
@@ -198,27 +199,33 @@ const AdminSystemCore = (() => {
     if (state.visible) renderPanel();
   }
 
-  function getRuntimeState() {
-    return Runtime?.getState?.() || { route: null, booted: false, safeMode: {}, recovery: {} };
+  function getSharedState() {
+    return Runtime?.getSharedState?.() || { activeRoute: null, currentLayout: null, safeMode: {}, config: {}, registry: {}, moduleHealth: [], pluginHealth: [], booted: false };
   }
 
   function getSafeModeActive() {
-    const safeMode = getRuntimeState().safeMode || {};
+    const safeMode = getSharedState().safeMode || {};
     return Object.values(safeMode).some((value) => !!value);
   }
 
   function canEditRegistry() {
-    return state.authed || getRuntimeState().safeMode?.safeBoot;
+    return state.authed || getSharedState().safeMode?.safeBoot;
   }
 
   function renderPanel() {
     if (!panel) createPanel();
 
-    const runtime = getRuntimeState();
-    const config = ConfigLoader.get() || {};
-    const registryRoutes = RegistryEngine.getAll() || {};
-    const modules = ModuleLoader.getHealth();
-    const plugins = PluginEngine.getHealth();
+    const shared = getSharedState();
+    const runtime = {
+      route: shared.activeRoute,
+      booted: shared.booted,
+      safeMode: shared.safeMode,
+      recovery: Runtime?.getState?.()?.recovery || {}
+    };
+    const config = shared.config || {};
+    const registryRoutes = shared.registry || {};
+    const modules = shared.moduleHealth || [];
+    const plugins = shared.pluginHealth || [];
     const errors = Diagnostics.getErrors().slice(-8);
     const warnings = Diagnostics.getWarnings().slice(-8);
     const logs = Diagnostics.getLogs().slice(-8);
@@ -285,7 +292,7 @@ const AdminSystemCore = (() => {
       <div style="display:grid;grid-template-columns:1fr;gap:10px;">
         <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
           <div style="font-weight:700;margin-bottom:8px;">Runtime Dashboard</div>
-          <div style="font-size:12px;color:#cbd5e1;">Booted: ${runtime.booted ? "complete" : "pending"}</div>
+              <div style="font-size:12px;color:#cbd5e1;">Booted: ${runtime.booted ? "complete" : "pending"}</div>
           <div style="font-size:12px;color:#cbd5e1;">Current route: ${Diagnostics.escapeText(runtime.route || "none")}</div>
           <div style="font-size:12px;color:#cbd5e1;">Crash counter: ${runtime.recovery?.crashCount || 0}</div>
           <div style="font-size:12px;color:#cbd5e1;">Recovery mode: ${runtime.recovery?.recoveryMode ? "active" : "inactive"}</div>
@@ -399,7 +406,7 @@ const AdminSystemCore = (() => {
   }
 
   function renderConfigTab({ config }) {
-    const jsonText = Diagnostics.escapeText(JSON.stringify(config, null, 2));
+    const jsonText = Diagnostics.escapeText(JSON.stringify(config || {}, null, 2));
     return `
       <div style="display:grid;gap:10px;">
         <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
@@ -431,16 +438,18 @@ const AdminSystemCore = (() => {
   function toggleModuleEnabled(moduleId) {
     const record = ModuleLoader.getHealth().find((item) => item.moduleId === moduleId);
     if (!record) return;
-    const success = ModuleLoader.setModuleEnabled(moduleId, record.adminDisabled);
-    state.statusMessage = success ? `Module ${moduleId} ${record.adminDisabled ? "enabled" : "disabled"}` : `Failed to update module ${moduleId}`;
+    const nextEnabled = !record.adminDisabled;
+    const success = ModuleLoader.setModuleEnabled(moduleId, nextEnabled);
+    state.statusMessage = success ? `Module ${moduleId} ${nextEnabled ? "enabled" : "disabled"}` : `Failed to update module ${moduleId}`;
     renderPanel();
   }
 
   function togglePluginEnabled(pluginId) {
     const record = PluginEngine.getHealth().find((item) => item.pluginId === pluginId);
     if (!record) return;
-    const success = PluginEngine.setPluginEnabled(pluginId, record.disabled);
-    state.statusMessage = success ? `Plugin ${pluginId} ${record.disabled ? "enabled" : "disabled"}` : `Failed to update plugin ${pluginId}`;
+    const nextEnabled = !record.disabled;
+    const success = PluginEngine.setPluginEnabled(pluginId, nextEnabled);
+    state.statusMessage = success ? `Plugin ${pluginId} ${nextEnabled ? "enabled" : "disabled"}` : `Failed to update plugin ${pluginId}`;
     renderPanel();
   }
 
@@ -454,6 +463,11 @@ const AdminSystemCore = (() => {
         state.statusMessage = `Config apply failed: ${result.error}`;
       } else {
         state.statusMessage = "Config applied successfully.";
+        updateButtonState();
+        if (!ConfigLoader.get()?.admin?.enabled) {
+          state.statusMessage = "Config applied and admin access disabled.";
+          hidePanel();
+        }
       }
     } catch (err) {
       state.statusMessage = `Config apply failed: ${err.message || "Invalid JSON"}`;
@@ -462,13 +476,17 @@ const AdminSystemCore = (() => {
   }
 
   function resetConfigEditor() {
-    renderPanel();
     state.statusMessage = "Config editor reset to loaded configuration.";
+    renderPanel();
   }
 
   function hidePanel() {
     if (panel) panel.style.display = "none";
     state.visible = false;
+  }
+
+  function refresh() {
+    if (state.visible) renderPanel();
   }
 
   return {
@@ -485,6 +503,8 @@ const AdminSystemCore = (() => {
     toggleRouteEnabled,
     applyConfigEditor,
     resetConfigEditor,
+    refresh,
+    updateButtonState,
     openPanel,
     hidePanel
   };

@@ -11,6 +11,7 @@ const ModuleLoader = (() => {
         quarantined: false,
         quarantinedUntil: null,
         adminDisabled: false,
+        initialized: false,
         lastError: null,
         lastLoaded: null
       });
@@ -60,6 +61,9 @@ const ModuleLoader = (() => {
     record.adminDisabled = enabled === false ? true : false;
     Diagnostics.info("[ModuleLoader] module admin disabled state updated", { moduleId, disabled: record.adminDisabled });
     Lifecycle.emit("module:load", { moduleId, status: record.adminDisabled ? "disabled" : "loaded" });
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ moduleHealth: getHealth() });
+    }
     return true;
   }
 
@@ -94,10 +98,18 @@ const ModuleLoader = (() => {
       return `<div class="module-error">Missing module: ${Diagnostics.escapeText(moduleId)}</div>`;
     }
 
-    const features = FeatureEngine.resolve(route.features, ctx);
-    if (Array.isArray(route.features)) {
-      route.features.forEach((featureId) => { RuntimeInspector?.addFeature?.(featureId); });
+    if (typeof mod.init === "function" && !record.initialized) {
+      try {
+        mod.init(ctx);
+        record.initialized = true;
+        Diagnostics.info("[ModuleLoader] module initialized", moduleId);
+      } catch (err) {
+        Diagnostics.warn("[ModuleLoader] module init failed", { moduleId, error: err });
+      }
     }
+
+    const features = FeatureEngine.resolve(route.features, ctx);
+    const loadedFeatureIds = Array.isArray(route.features) ? [...new Set(route.features)] : [];
     let body = "";
 
     try {
@@ -115,6 +127,9 @@ const ModuleLoader = (() => {
     }
 
     Lifecycle.emit("module:load", { moduleId, status: record.quarantined ? "quarantined" : "loaded" });
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ moduleHealth: getHealth(), loadedFeatures });
+    }
 
     return `
       <div class="module" data-module="${Diagnostics.escapeText(moduleId)}">

@@ -111,6 +111,9 @@ const ConfigLoader = (() => {
       Diagnostics.warn("[ConfigLoader] failed to persist config override", err);
     }
     Diagnostics.info("[ConfigLoader] configuration applied via admin editor", normalized);
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ config: normalized, featureFlags: normalized.features });
+    }
     return { success: true };
   }
 
@@ -118,6 +121,9 @@ const ConfigLoader = (() => {
     localStorage.removeItem(OVERRIDE_KEY);
     config = { ...defaults };
     Diagnostics.info("[ConfigLoader] configuration reset to defaults");
+    if (window.Runtime?.updateRuntimeState) {
+      window.Runtime.updateRuntimeState({ config, featureFlags: config.features });
+    }
     return config;
   }
 

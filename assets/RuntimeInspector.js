@@ -1,37 +1,5 @@
 const RuntimeInspector = (() => {
-  const state = {
-    bootStatus: "pending",
-    activeRoute: null,
-    currentLayout: null,
-    loadedModules: [],
-    loadedPlugins: [],
-    loadedFeatures: [],
-    runtimeLogs: [],
-    runtimeWarnings: [],
-    runtimeErrors: [],
-    crashCount: 0,
-    routeHealth: {
-      total: 0,
-      active: 0,
-      disabled: 0,
-      invalid: 0
-    },
-    moduleHealth: [],
-    pluginHealth: [],
-    quarantinedModules: [],
-    quarantinedPlugins: [],
-    safeMode: {
-      safeBoot: false,
-      pluginDisableMode: false,
-      diagnosticsOnlyBoot: false
-    },
-    registryDiagnostics: {
-      duplicateRoutes: [],
-      invalidContracts: [],
-      disabledRoutes: [],
-      missingLayouts: [],
-      missingModules: []
-    },
+  const uiState = {
     filterType: "all"
   };
 
@@ -140,79 +108,36 @@ const RuntimeInspector = (() => {
     const types = ["all", "info", "warn", "error"];
     return `
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        ${types.map(type => `<button onclick="window.RuntimeInspector.toggleFilter('${type}')" style="padding:6px 10px;border:none;border-radius:8px;background:${state.filterType === type ? `#2563eb` : `#334155`};color:#f8fafc;cursor:pointer;">${Diagnostics.escapeText(type)}</button>`).join("")}
+        ${types.map(type => `<button onclick="window.RuntimeInspector.toggleFilter('${type}')" style="padding:6px 10px;border:none;border-radius:8px;background:${uiState.filterType === type ? `#2563eb` : `#334155`};color:#f8fafc;cursor:pointer;">${Diagnostics.escapeText(type)}</button>`).join("")}
         <button onclick="window.AdminSystemCore.openPanel()" style="padding:6px 10px;border:none;border-radius:8px;background:#16a34a;color:#f8fafc;cursor:pointer;">Admin Panel</button>
       </div>
     `;
   }
 
   function filterLogs(items) {
-    if (state.filterType === "all") return items;
-    return items.filter(item => item.type === state.filterType);
+    if (uiState.filterType === "all") return items;
+    return items.filter(item => item.type === uiState.filterType);
   }
 
-  function refreshDiagnostics() {
-    state.runtimeWarnings = Diagnostics.getWarnings().slice(-20);
-    state.runtimeErrors = Diagnostics.getErrors().slice(-20);
-    state.runtimeLogs = Diagnostics.getLogs().slice(-20);
-  }
-
-  function refreshSafeMode() {
-    if (window.Runtime?.safeMode) {
-      state.safeMode = { ...window.Runtime.safeMode };
-    }
-    if (window.Runtime?.getState) {
-      const runtimeState = window.Runtime.getState();
-      state.crashCount = runtimeState?.recovery?.crashCount || 0;
-    }
-  }
-
-  function refreshHealth() {
-    if (typeof PluginEngine.getHealth === "function") {
-      state.pluginHealth = PluginEngine.getHealth();
-      state.quarantinedPlugins = state.pluginHealth.filter(entry => entry.quarantined).map(entry => entry.pluginId);
-    }
-    if (typeof ModuleLoader.getHealth === "function") {
-      state.moduleHealth = ModuleLoader.getHealth();
-      state.quarantinedModules = state.moduleHealth.filter(entry => entry.quarantined).map(entry => entry.moduleId);
-    }
-    const routes = RegistryEngine.getAll() || {};
-    const total = Object.keys(routes).length;
-    const disabled = Object.values(routes).filter(route => route.enabled === false).length;
-    const invalid = state.registryDiagnostics.invalidContracts.length;
-    state.routeHealth = {
-      total,
-      active: total - disabled - invalid,
-      disabled,
-      invalid
-    };
-  }
-
-  function refreshRegistryDiagnostics() {
-    if (typeof RegistryEngine.inspect !== "function") return;
-    const report = RegistryEngine.inspect();
-    state.registryDiagnostics = {
-      duplicateRoutes: report.duplicateRoutes || [],
-      invalidContracts: report.invalidContracts || [],
-      disabledRoutes: report.disabledRoutes || [],
-      missingLayouts: report.missingLayouts || [],
-      missingModules: report.missingModules || []
-    };
+  function refresh() {
+    if (visible) render();
   }
 
   function render() {
     if (!panel) createPanel();
-    refreshDiagnostics();
-    refreshSafeMode();
-    refreshRegistryDiagnostics();
-    refreshHealth();
+    const shared = Runtime?.getSharedState?.() || {};
+    const logEntries = filterLogs(
+      (Diagnostics.getErrors().concat(Diagnostics.getWarnings(), Diagnostics.getLogs()) || [])
+        .map((entry) => ({ ...entry, type: entry.type || "info" }))
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    );
 
     const diagnosticsSummary = `
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Warnings: ${state.runtimeWarnings.length}</span>
-        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Errors: ${state.runtimeErrors.length}</span>
-        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Plugins: ${state.loadedPlugins.length}</span>
-        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Modules: ${state.loadedModules.length}</span>
+        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Warnings: ${shared.diagnostics?.warnings ?? 0}</span>
+        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Errors: ${shared.diagnostics?.errors ?? 0}</span>
+        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Plugins: ${shared.loadedPlugins?.length ?? 0}</span>
+        <span style="background:#1e293b; padding:4px 8px; border-radius:999px;">Modules: ${shared.loadedModules?.length ?? 0}</span>
       </div>
     `;
 
@@ -221,30 +146,30 @@ const RuntimeInspector = (() => {
         <div style="font-size:15px; font-weight:800;">PlatformCore Inspector</div>
         <button style="border:none; background:#0f172a; color:#f8fafc; padding:4px 8px; border-radius:8px; cursor:pointer;" onclick="window.RuntimeInspector.toggle()">${visible ? "Hide" : "Show"}</button>
       </div>
-      ${renderSection("Boot status", `<div>${Diagnostics.escapeText(state.bootStatus)}</div>`)}
-      ${renderSection("Active route", `<div>${Diagnostics.escapeText(state.activeRoute || "None")}</div>`)}
-      ${renderSection("Current layout", `<div>${Diagnostics.escapeText(state.currentLayout || "None")}</div>`)}
+      ${renderSection("Boot status", `<div>${Diagnostics.escapeText(shared.booted ? "complete" : "pending")}</div>`)}
+      ${renderSection("Active route", `<div>${Diagnostics.escapeText(shared.activeRoute || "None")}</div>`)}
+      ${renderSection("Current layout", `<div>${Diagnostics.escapeText(shared.currentLayout || "None")}</div>`)}
       ${renderSection("Runtime events", `${renderLogToolbar()}${renderList(logEntries.map(entry => `${entry.timestamp} - ${entry.type.toUpperCase()}: ${entry.message}`), "No events")}`)}
-      ${renderSection("Registered routes", renderRouteTable(RegistryEngine.getAll()))}
-      ${renderSection("Loaded plugins", renderList(state.loadedPlugins))}
-      ${renderSection("Loaded modules", renderList(state.loadedModules))}
-      ${renderSection("Loaded features", renderList(state.loadedFeatures))}
-      ${renderSection("Route health", `<div>Total: ${state.routeHealth.total}<br>Active: ${state.routeHealth.active}<br>Disabled: ${state.routeHealth.disabled}<br>Invalid: ${state.routeHealth.invalid}</div>`)}
-      ${renderSection("Module health", `<div>Quarantined modules: ${state.quarantinedModules.length}<br>${Diagnostics.escapeText(state.quarantinedModules.join(", ") || "None")}</div>`)}
-      ${renderSection("Plugin health", `<div>Quarantined plugins: ${state.quarantinedPlugins.length}<br>${Diagnostics.escapeText(state.quarantinedPlugins.join(", ") || "None")}</div>`)}
-      ${renderSection("Crash counters", `<div>Runtime crash count: ${state.crashCount}</div>`)}
-      ${renderSection("Safe mode flags", `<div>${Object.entries(state.safeMode).map(([key, value]) => `${Diagnostics.escapeText(key)}: ${Diagnostics.escapeText(String(value))}`).join("<br>")}</div>`) }
+      ${renderSection("Registered routes", renderRouteTable(shared.registry))}
+      ${renderSection("Loaded plugins", renderList(shared.loadedPlugins))}
+      ${renderSection("Loaded modules", renderList(shared.loadedModules))}
+      ${renderSection("Loaded features", renderList(shared.loadedFeatures))}
+      ${renderSection("Route health", `<div>Total: ${Object.keys(shared.registry || {}).length}<br>Active: ${Object.values(shared.registry || {}).filter(route => route.enabled !== false).length}<br>Disabled: ${Object.values(shared.registry || {}).filter(route => route.enabled === false).length}<br>Invalid: ${shared.registry ? Object.values(shared.registry).filter(route => !route || route.type !== "page").length : 0}</div>`)}
+      ${renderSection("Module health", `<div>Quarantined modules: ${shared.moduleHealth?.filter(entry => entry.quarantined).length ?? 0}<br>${Diagnostics.escapeText((shared.moduleHealth?.filter(entry => entry.quarantined).map(entry => entry.moduleId) || []).join(", ") || "None")}</div>`)}
+      ${renderSection("Plugin health", `<div>Quarantined plugins: ${shared.pluginHealth?.filter(entry => entry.quarantined).length ?? 0}<br>${Diagnostics.escapeText((shared.pluginHealth?.filter(entry => entry.quarantined).map(entry => entry.pluginId) || []).join(", ") || "None")}</div>`)}
+      ${renderSection("Crash counters", `<div>Runtime crash count: ${Runtime.getState()?.recovery?.crashCount || 0}</div>`)}
+      ${renderSection("Safe mode flags", `<div>${Object.entries(shared.safeMode || {}).map(([key, value]) => `${Diagnostics.escapeText(key)}: ${Diagnostics.escapeText(String(value))}`).join("<br>")}</div>`) }
       ${renderSection("Registry diagnostics", `
         <div style="font-size:12px; margin-bottom:6px;">Duplicate routes</div>
-        ${renderList(state.registryDiagnostics.duplicateRoutes)}
+        ${renderList(RegistryEngine.inspect?.().duplicateRoutes || [])}
         <div style="font-size:12px; margin:8px 0 6px 0;">Invalid contracts</div>
-        ${renderList(state.registryDiagnostics.invalidContracts)}
+        ${renderList(RegistryEngine.inspect?.().invalidContracts || [])}
         <div style="font-size:12px; margin:8px 0 6px 0;">Disabled routes</div>
-        ${renderList(state.registryDiagnostics.disabledRoutes)}
+        ${renderList(RegistryEngine.inspect?.().disabledRoutes || [])}
         <div style="font-size:12px; margin:8px 0 6px 0;">Missing layouts</div>
-        ${renderList(state.registryDiagnostics.missingLayouts)}
+        ${renderList(RegistryEngine.inspect?.().missingLayouts || [])}
         <div style="font-size:12px; margin:8px 0 6px 0;">Missing modules</div>
-        ${renderList(state.registryDiagnostics.missingModules)}
+        ${renderList(RegistryEngine.inspect?.().missingModules || [])}
       `)}
       ${diagnosticsSummary}
     `;
@@ -258,69 +183,14 @@ const RuntimeInspector = (() => {
     if (visible) render();
   }
 
-  function updateState(updates) {
-    Object.assign(state, updates);
+  function toggleFilter(filterType) {
+    uiState.filterType = filterType;
     if (visible) render();
-  }
-
-  function addModule(moduleId) {
-    if (!state.loadedModules.includes(moduleId)) {
-      state.loadedModules.push(moduleId);
-    }
-    if (visible) render();
-  }
-
-  function addPlugin(pluginId) {
-    if (!state.loadedPlugins.includes(pluginId)) {
-      state.loadedPlugins.push(pluginId);
-    }
-    if (visible) render();
-  }
-
-  function addFeature(featureId) {
-    if (!state.loadedFeatures.includes(featureId)) {
-      state.loadedFeatures.push(featureId);
-    }
-    if (visible) render();
-  }
-
-  function registerLifecycle() {
-    Lifecycle.on("boot:start", () => updateState({ bootStatus: "starting" }));
-    Lifecycle.on("boot:complete", () => updateState({ bootStatus: "complete" }));
-    Lifecycle.on("route:change", (payload) => updateState({ activeRoute: payload.data?.route?.id || payload.data?.route || null }));
-    Lifecycle.on("layout:mount", (payload) => {
-      updateState({ currentLayout: payload.data?.layout || null });
-      if (payload.data?.status === "missing") {
-        if (!state.registryDiagnostics.missingLayouts.includes(payload.data?.layout)) {
-          state.registryDiagnostics.missingLayouts.push(payload.data?.layout);
-        }
-      }
-    });
-    Lifecycle.on("module:load", (payload) => {
-      const moduleId = payload.data?.moduleId;
-      if (moduleId) {
-        addModule(moduleId);
-        if (payload.data?.status === "missing" && !state.registryDiagnostics.missingModules.includes(moduleId)) {
-          state.registryDiagnostics.missingModules.push(moduleId);
-        }
-      }
-    });
-    Lifecycle.on("plugin:mount", (payload) => {
-      const pluginId = payload.data?.pluginId;
-      if (pluginId) addPlugin(pluginId);
-    });
-    Lifecycle.on("runtime:error", (payload) => {
-      const errorEntry = { timestamp: payload.timestamp, message: payload.data?.message || "runtime error" };
-      state.runtimeErrors.push(errorEntry);
-      if (visible) render();
-    });
   }
 
   function init() {
-    registerLifecycle();
     createPanel();
     visible = false;
-    refreshDiagnostics();
     render();
   }
 
@@ -328,10 +198,7 @@ const RuntimeInspector = (() => {
     init,
     toggle,
     toggleFilter,
-    getState: () => ({ ...state }),
-    addFeature,
-    addModule,
-    addPlugin
+    refresh
   };
 })();
 

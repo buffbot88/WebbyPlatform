@@ -23,6 +23,22 @@ const Runtime = (() => {
     fallbackLayoutBootMode: false
   };
 
+  const sharedState = {
+    activeRoute: null,
+    currentLayout: null,
+    loadedModules: [],
+    loadedPlugins: [],
+    loadedFeatures: [],
+    featureFlags: {},
+    config: {},
+    safeMode: { ...safeMode },
+    diagnostics: { logs: 0, warnings: 0, errors: 0 },
+    registry: {},
+    moduleHealth: [],
+    pluginHealth: [],
+    booted: false
+  };
+
   let booted = false;
   let lastRouteAttempt = null;
 
@@ -85,6 +101,68 @@ const Runtime = (() => {
     }
   }
 
+  function cloneValue(item) {
+    if (item === null || typeof item !== "object") return item;
+    try {
+      return JSON.parse(JSON.stringify(item));
+    } catch (err) {
+      return item;
+    }
+  }
+
+  function buildSharedState(update = {}) {
+    const config = update.config ?? ConfigLoader.get() ?? {};
+    const registry = update.registry ?? RegistryEngine.getAll() ?? {};
+    const moduleHealth = update.moduleHealth ?? ModuleLoader.getHealth();
+    const pluginHealth = update.pluginHealth ?? PluginEngine.getHealth();
+    const featureFlags = update.featureFlags ?? config.features ?? {};
+
+    const loadedModules = Array.from(new Set(
+      update.loadedModules ?? moduleHealth.map((entry) => entry.moduleId)
+    ));
+    const loadedPlugins = Array.from(new Set(
+      update.loadedPlugins ?? pluginHealth.map((entry) => entry.pluginId)
+    ));
+    const loadedFeatures = Array.from(new Set(
+      update.loadedFeatures ?? sharedState.loadedFeatures ?? []
+    ));
+
+    return {
+      activeRoute: update.activeRoute ?? state.route ?? sharedState.activeRoute,
+      currentLayout: update.currentLayout ?? sharedState.currentLayout,
+      loadedModules,
+      loadedPlugins,
+      loadedFeatures,
+      featureFlags: cloneValue(featureFlags),
+      config: cloneValue(config),
+      safeMode: { ...safeMode, ...sharedState.safeMode, ...(update.safeMode || {}) },
+      diagnostics: {
+        logs: Diagnostics.getLogs().length,
+        warnings: Diagnostics.getWarnings().length,
+        errors: Diagnostics.getErrors().length
+      },
+      registry: cloneValue(registry),
+      moduleHealth: cloneValue(moduleHealth),
+      pluginHealth: cloneValue(pluginHealth),
+      booted
+    };
+  }
+
+  function updateRuntimeState(update = {}) {
+    const nextState = buildSharedState(update);
+    Object.assign(sharedState, nextState);
+    if (window.RuntimeInspector?.refresh) {
+      window.RuntimeInspector.refresh();
+    }
+    if (window.AdminSystemCore?.refresh) {
+      window.AdminSystemCore.refresh();
+    }
+    if (window.AdminSystemCore?.updateButtonState) {
+      window.AdminSystemCore.updateButtonState();
+    }
+    return cloneValue(sharedState);
+  }
+
   async function init() {
     Lifecycle.emit("boot:start", { state: "starting" });
     try {
@@ -101,8 +179,20 @@ const Runtime = (() => {
       }
 
       PluginEngine.mountAll({ state });
+      updateRuntimeState({
+        config: ConfigLoader.get(),
+        registry: RegistryEngine.getAll(),
+        safeMode: { ...safeMode },
+        loadedFeatures: [],
+        activeRoute: state.route,
+        currentLayout: null,
+        moduleHealth: ModuleLoader.getHealth(),
+        pluginHealth: PluginEngine.getHealth()
+      });
+
       AdminSystemCore.init();
       booted = true;
+      updateRuntimeState({ booted });
 
       const routeName = getHashRoute();
       await navigate(routeName, { updateHash: false, bootPhase: true });
@@ -176,6 +266,7 @@ const Runtime = (() => {
       if (app) app.innerHTML = finalHTML;
 
       state.route = route.id;
+      updateRuntimeState({ activeRoute: route.id, currentLayout: route.layout, loadedFeatures: route.features || [] });
       trackRouteAttempt(route.id, true);
       if (updateHash && route.id) {
         const targetHash = `#${route.id}`;
@@ -208,6 +299,19 @@ const Runtime = (() => {
       recovery: { ...state.recovery }
     };
   }
+
+  function getSharedState() {
+    return cloneValue(sharedState);
+  }
+
+  return {
+    init,
+    navigate,
+    getState,
+    getSharedState,
+    updateRuntimeState,
+    safeMode
+  };
 
   return {
     init,
