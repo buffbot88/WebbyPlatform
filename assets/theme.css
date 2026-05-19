@@ -102,36 +102,6 @@ input:focus {
 }
 
 /* =========================================================
-   DASHBOARD LAYOUT
-========================================================= */
-
-.layout-dashboard {
-  display: flex;
-  min-height: 100vh;
-}
-
-.layout-dashboard aside {
-  background: #0b1220;
-  color: white;
-  padding: 16px;
-}
-
-.layout-dashboard aside button {
-  color: #cbd5e1;
-  text-align: left;
-  width: 100%;
-}
-
-.layout-dashboard aside button:hover {
-  background: rgba(255,255,255,0.08);
-  color: white;
-}
-
-.layout-dashboard main {
-  background: var(--bg);
-}
-
-/* =========================================================
    MODULE CARDS
 ========================================================= */
 

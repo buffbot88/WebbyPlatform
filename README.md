@@ -31,16 +31,16 @@ WebbyPlatform OS is built on a **modular engine architecture** that separates co
 │   ├── layoutEngine.js     # Layout template management
 │   ├── moduleLoader.js     # Module loading
 │   ├── adminSystemCore.js  # Authentication system
-│   ├── settings.js         # Global settings
 │   └── theme.css           # Styling
 ├── layouts/                # HTML layout templates
-│   ├── default.html        # Default layout
-│   └── dashboard.html      # Dashboard layout
+│   └── default.html        # Default layout
 └── modules/
     └── pages/              # Page modules
         ├── home.js         # Home page
-        ├── dashboard.js    # Dashboard page
-        └── settings.js     # Settings page
+        ├── blog.js         # Blog page
+        ├── forums.js       # Forums page
+        ├── calendar.js     # Calendar page
+        └── account.js      # Account page
 ```
 
 ## Features

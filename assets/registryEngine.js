@@ -4,12 +4,21 @@ const RegistryEngine = (() => {
   let validRoutes = {};
 
   function normalizeRoute(name, route) {
+    const label = typeof route.label === "string" && route.label.trim()
+      ? route.label
+      : typeof route.title === "string" && route.title.trim()
+        ? route.title
+        : name;
+
     return {
       id: typeof route.id === "string" && route.id.trim() ? route.id : name,
       type: route.type,
       layout: typeof route.layout === "string" && route.layout.trim() ? route.layout : "default",
       auth: typeof route.auth === "boolean" ? route.auth : false,
       enabled: typeof route.enabled === "boolean" ? route.enabled : true,
+      nav: typeof route.nav === "boolean" ? route.nav : true,
+      label,
+      title: typeof route.title === "string" ? route.title : null,
       features: Array.isArray(route.features) ? route.features : []
     };
   }
@@ -21,6 +30,9 @@ const RegistryEngine = (() => {
     if (route.id !== undefined && typeof route.id !== "string") return false;
     if (route.auth !== undefined && typeof route.auth !== "boolean") return false;
     if (route.enabled !== undefined && typeof route.enabled !== "boolean") return false;
+    if (route.nav !== undefined && typeof route.nav !== "boolean") return false;
+    if (route.label !== undefined && typeof route.label !== "string") return false;
+    if (route.title !== undefined && typeof route.title !== "string") return false;
     if (route.features !== undefined && !Array.isArray(route.features)) return false;
     if (route.layout !== undefined && typeof route.layout !== "string") return false;
     return true;
