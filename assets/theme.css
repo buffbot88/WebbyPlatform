@@ -182,3 +182,109 @@ input:focus {
 .muted {
   color: var(--muted);
 }
+
+/* =========================================================
+   CMS GATEWAY / MODULE SDK STYLES
+========================================================= */
+
+.cms-hero {
+  background: linear-gradient(135deg, #dbeafe, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 36px;
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 24px;
+}
+
+.cms-kicker {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cms-hero h1 {
+  max-width: 760px;
+  font-size: 36px;
+  line-height: 1.1;
+  margin: 0 0 12px 0;
+}
+
+.cms-hero p {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.cms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.cms-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+}
+
+.cms-card:hover {
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+
+.cms-card h3 {
+  margin: 0 0 8px 0;
+}
+
+.cms-card p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.cms-page {
+  max-width: 900px;
+}
+
+.cms-page h1 {
+  margin-top: 0;
+}
+
+.system-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.system-brand {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.system-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#layout-slot {
+  padding: 18px;
+}

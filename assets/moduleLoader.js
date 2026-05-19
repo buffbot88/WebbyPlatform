@@ -1,148 +1,177 @@
 const ModuleLoader = (() => {
-  const moduleHealth = new Map();
-  const MAX_MODULE_FAILURES = 3;
-  const QUARANTINE_DURATION_MS = 5 * 60 * 1000;
 
-  function getModuleRecord(moduleId) {
-    if (!moduleHealth.has(moduleId)) {
-      moduleHealth.set(moduleId, {
-        moduleId,
-        failureCount: 0,
-        quarantined: false,
-        quarantinedUntil: null,
-        adminDisabled: false,
+  const moduleHealth = {};
+  const quarantineDuration = 30000;
+
+  function now() {
+    return Date.now();
+  }
+
+  function ensureHealth(id) {
+    if (!moduleHealth[id]) {
+      moduleHealth[id] = {
+        id,
         initialized: false,
-        lastError: null,
-        lastLoaded: null
-      });
+        loaded: false,
+        failures: 0,
+        quarantined: false,
+        quarantineUntil: null,
+        adminDisabled: false,
+        lastError: null
+      };
     }
-    const record = moduleHealth.get(moduleId);
-    if (record.quarantined && record.quarantinedUntil && Date.now() > record.quarantinedUntil) {
-      record.quarantined = false;
-      record.failureCount = 0;
-      record.quarantinedUntil = null;
-      Diagnostics.info("[ModuleLoader] module quarantine expired", moduleId);
+
+    return moduleHealth[id];
+  }
+
+  function isQuarantined(id) {
+    const health = ensureHealth(id);
+
+    if (!health.quarantined) return false;
+
+    if (health.quarantineUntil && now() > health.quarantineUntil) {
+      health.quarantined = false;
+      health.quarantineUntil = null;
+      return false;
     }
-    return record;
-  }
 
-  function quarantineModule(moduleId, err) {
-    const record = getModuleRecord(moduleId);
-    record.quarantined = true;
-    record.quarantinedUntil = Date.now() + QUARANTINE_DURATION_MS;
-    record.lastError = err;
-    Diagnostics.warn("[ModuleLoader] module quarantined after repeated failures", { moduleId, failureCount: record.failureCount });
-    Lifecycle.emit("module:load", { moduleId, status: "quarantined", error: err });
-  }
-
-  function recordModuleFailure(moduleId, err) {
-    const record = getModuleRecord(moduleId);
-    record.failureCount += 1;
-    record.lastError = err;
-    if (record.failureCount >= MAX_MODULE_FAILURES) {
-      quarantineModule(moduleId, err);
-    }
-  }
-
-  function recordModuleSuccess(moduleId) {
-    const record = getModuleRecord(moduleId);
-    record.failureCount = 0;
-    record.lastLoaded = Date.now();
-    record.lastError = null;
-  }
-
-  function isQuarantined(moduleId) {
-    return getModuleRecord(moduleId).quarantined;
-  }
-
-  function setModuleEnabled(moduleId, enabled) {
-    if (!moduleId || typeof enabled !== "boolean") return false;
-    const record = getModuleRecord(moduleId);
-    record.adminDisabled = enabled === false ? true : false;
-    Diagnostics.info("[ModuleLoader] module admin disabled state updated", { moduleId, disabled: record.adminDisabled });
-    Lifecycle.emit("module:load", { moduleId, status: record.adminDisabled ? "disabled" : "loaded" });
-    if (window.Runtime?.updateRuntimeState) {
-      window.Runtime.updateRuntimeState({ moduleHealth: getHealth() });
-    }
     return true;
   }
 
+  function quarantine(id, error) {
+    const health = ensureHealth(id);
+
+    health.failures += 1;
+    health.lastError = error?.message || String(error);
+    health.quarantined = true;
+    health.quarantineUntil = now() + quarantineDuration;
+
+    Diagnostics?.warn?.("[ModuleLoader] module quarantined", {
+      id,
+      failures: health.failures,
+      error: health.lastError
+    });
+  }
+
   function getHealth() {
-    return Array.from(moduleHealth.values()).map(record => ({ ...record }));
+    return JSON.parse(JSON.stringify(moduleHealth));
+  }
+
+  function setModuleEnabled(id, enabled) {
+    const health = ensureHealth(id);
+
+    health.adminDisabled = !enabled;
+
+    Runtime?.updateRuntimeState?.({
+      moduleHealth: getHealth()
+    });
+  }
+
+  function isModuleEnabled(id) {
+    return !ensureHealth(id).adminDisabled;
+  }
+
+  function normalizeOutput(output) {
+    if (output === null || output === undefined) return "";
+    return String(output);
   }
 
   function load(route, ctx = {}) {
-    if (!route || typeof route !== "object") {
-      return `<div class="module-error">Invalid route configuration</div>`;
+    const id = route?.id;
+
+    if (!id) {
+      return `
+        <div class="module-error">
+          Invalid module route.
+        </div>
+      `;
     }
 
-    const moduleId = route.id || "unknown";
-    const record = getModuleRecord(moduleId);
+    const health = ensureHealth(id);
 
-    if (record.adminDisabled) {
-      Diagnostics.warn("[ModuleLoader] module disabled by admin", moduleId);
-      Lifecycle.emit("module:load", { moduleId, status: "disabled" });
-      return `<div class="module-error">Module disabled by admin: ${Diagnostics.escapeText(moduleId)}</div>`;
+    if (!isModuleEnabled(id)) {
+      return `
+        <div class="module-disabled">
+          Module disabled: ${id}
+        </div>
+      `;
     }
 
-    if (record.quarantined) {
-      Diagnostics.warn("[ModuleLoader] quarantined module blocked", moduleId);
-      return `<div class="module-error">Module quarantined: ${Diagnostics.escapeText(moduleId)}</div>`;
+    if (isQuarantined(id)) {
+      return `
+        <div class="module-quarantined">
+          Module temporarily quarantined: ${id}
+        </div>
+      `;
     }
-
-    const mod = window.ModuleRegistry?.[moduleId];
-
-    if (!mod || typeof mod.render !== "function") {
-      Diagnostics.warn("[ModuleLoader] missing module", moduleId);
-      Lifecycle.emit("module:load", { moduleId, status: "missing" });
-      return `<div class="module-error">Missing module: ${Diagnostics.escapeText(moduleId)}</div>`;
-    }
-
-    if (typeof mod.init === "function" && !record.initialized) {
-      try {
-        mod.init(ctx);
-        record.initialized = true;
-        Diagnostics.info("[ModuleLoader] module initialized", moduleId);
-      } catch (err) {
-        Diagnostics.warn("[ModuleLoader] module init failed", { moduleId, error: err });
-      }
-    }
-
-    const features = FeatureEngine.resolve(route.features, ctx);
-    const loadedFeatureIds = Array.isArray(route.features) ? [...new Set(route.features)] : [];
-    let body = "";
 
     try {
-      body = mod.render(ctx);
-      recordModuleSuccess(moduleId);
-    } catch (err) {
-      recordModuleFailure(moduleId, err);
-      Diagnostics.error("[ModuleLoader] module render failed", { id: moduleId, error: err });
-      body = `<div class="module-error">Module render failed: ${Diagnostics.escapeText(moduleId)}</div>`;
-    }
+      const mod = window.ModuleRegistry?.[id];
 
-    if (typeof body !== "string") {
-      Diagnostics.warn("[ModuleLoader] module render returned non-string output", moduleId);
-      body = String(body ?? "");
-    }
+      if (!mod || typeof mod.render !== "function") {
+        throw new Error(`Missing module render(): ${id}`);
+      }
 
-    Lifecycle.emit("module:load", { moduleId, status: record.quarantined ? "quarantined" : "loaded" });
-    if (window.Runtime?.updateRuntimeState) {
-      window.Runtime.updateRuntimeState({ moduleHealth: getHealth(), loadedFeatures });
-    }
+      if (!health.initialized && typeof mod.init === "function") {
+        mod.init(ctx);
+        health.initialized = true;
+      }
 
-    return `
-      <div class="module" data-module="${Diagnostics.escapeText(moduleId)}">
-        <div class="features">${features}</div>
-        <div class="content">${body}</div>
-      </div>
-    `;
+      const loadedFeatureIds = Array.isArray(route.features)
+        ? [...new Set(route.features)]
+        : [];
+
+      const features = FeatureEngine?.resolve?.(loadedFeatureIds, ctx) || "";
+
+      const body = normalizeOutput(mod.render(ctx));
+
+      health.loaded = true;
+      health.lastError = null;
+
+      Runtime?.updateRuntimeState?.({
+        moduleHealth: getHealth(),
+        loadedModules: [id],
+        loadedFeatures: loadedFeatureIds
+      });
+
+      Lifecycle?.emit?.("module:load", {
+        id,
+        route
+      });
+
+      return `
+        <div class="module" data-module-id="${id}">
+          <div class="features">${features}</div>
+          <div class="content">${body}</div>
+        </div>
+      `;
+
+    } catch (error) {
+      quarantine(id, error);
+
+      Runtime?.updateRuntimeState?.({
+        moduleHealth: getHealth()
+      });
+
+      Diagnostics?.error?.("[ModuleLoader] render failed", {
+        id,
+        error: error?.message || String(error)
+      });
+
+      return `
+        <div class="module-error">
+          <h3>Module Error</h3>
+          <p>${id} failed to render.</p>
+        </div>
+      `;
+    }
   }
 
   return {
     load,
     getHealth,
-    setModuleEnabled
+    setModuleEnabled,
+    isModuleEnabled
   };
 
 })();

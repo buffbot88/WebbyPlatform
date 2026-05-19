@@ -203,4 +203,8 @@ const RuntimeInspector = (() => {
 })();
 
 window.RuntimeInspector = RuntimeInspector;
-RuntimeInspector.init();
+window.addEventListener("DOMContentLoaded", () => {
+  if (window.Runtime) {
+    RuntimeInspector.init();
+  }
+});

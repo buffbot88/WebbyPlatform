@@ -1,64 +1,72 @@
 const LayoutEngine = (() => {
 
-  const defaultLayout = "default";
-  const slotMarker = "{{slot:main}}";
-  const layoutNameRx = /^[a-z0-9_-]+$/;
+  const loading = new Set();
 
-  async function load(name, visited = new Set()) {
-    const layoutName = layoutNameRx.test(name) ? name : defaultLayout;
-    if (!layoutNameRx.test(name)) {
-      Diagnostics.warn("[LayoutEngine] invalid layout name, falling back to default", name);
+  async function load(name = "default") {
+    const layoutName = typeof name === "string" && name.trim()
+      ? name.trim()
+      : "default";
+
+    if (loading.has(layoutName)) {
+      Diagnostics?.warn?.("[LayoutEngine] recursive layout load blocked", { layoutName });
+      return fallbackLayout();
     }
 
-    if (visited.has(layoutName)) {
-      Diagnostics.error("[LayoutEngine] recursive layout detected", layoutName);
-      Lifecycle.emit("layout:mount", { layout: layoutName, status: "recursive" });
-      return `<div class="layout-error">Recursive layout detected: ${Diagnostics.escapeText(layoutName)}</div>`;
-    }
+    loading.add(layoutName);
 
-    visited.add(layoutName);
-    const res = await fetch(`./layouts/${layoutName}.html`);
-    if (!res.ok) {
-      Diagnostics.warn("[LayoutEngine] missing layout file", layoutName);
-      if (layoutName !== defaultLayout) {
-        const fallback = await load(defaultLayout, visited);
-        Lifecycle.emit("layout:mount", { layout: defaultLayout, status: "fallback" });
-        return fallback;
+    try {
+      const res = await fetch(`./layouts/${layoutName}.html`);
+
+      if (!res.ok) {
+        Diagnostics?.warn?.("[LayoutEngine] layout missing, using fallback", { layoutName });
+        return fallbackLayout();
       }
-      Lifecycle.emit("layout:mount", { layout: layoutName, status: "missing" });
-      return `<div class="layout-error">Missing layout: ${Diagnostics.escapeText(layoutName)}</div>`;
-    }
 
-    const text = await res.text();
-    const occurrences = (text.match(new RegExp(slotMarker, "g")) || []).length;
-    if (occurrences === 0) {
-      Diagnostics.warn("[LayoutEngine] layout missing slot placeholder", layoutName);
-    }
-    if (occurrences > 1) {
-      Diagnostics.warn("[LayoutEngine] malformed slot structure in layout", { layout: layoutName, occurrences });
-    }
+      const html = await res.text();
 
-    Lifecycle.emit("layout:mount", { layout: layoutName, status: "mounted", slots: occurrences });
-    return text;
+      if (!html.includes("{{slot:main}}")) {
+        Diagnostics?.warn?.("[LayoutEngine] layout missing main slot", { layoutName });
+        return `${html}<main id="layout-slot">{{slot:main}}</main>`;
+      }
+
+      Lifecycle?.emit?.("layout:mount", {
+        layout: layoutName
+      });
+
+      return html;
+
+    } catch (err) {
+      Diagnostics?.error?.("[LayoutEngine] layout load failed", {
+        layoutName,
+        error: err?.message || String(err)
+      });
+
+      return fallbackLayout();
+
+    } finally {
+      loading.delete(layoutName);
+    }
+  }
+
+  function fallbackLayout() {
+    return `
+      <div class="layout layout-default">
+        <header class="system-header">
+          <div class="system-brand">WebbyPlatform OS</div>
+          <nav class="system-actions">{{slot:nav}}</nav>
+        </header>
+
+        <main id="layout-slot">
+          {{slot:main}}
+        </main>
+      </div>
+    `;
   }
 
   function inject(layout, content) {
-    if (typeof layout !== "string") {
-      Diagnostics.warn("[LayoutEngine] invalid layout content", layout);
-      layout = "";
-    }
-
-    const occurrences = (layout.match(new RegExp(slotMarker, "g")) || []).length;
-    if (occurrences === 0) {
-      Diagnostics.warn("[LayoutEngine] missing slot placeholder", layout);
-      return `<div class="layout-fallback">${content}</div>`;
-    }
-
-    if (occurrences > 1) {
-      Diagnostics.warn("[LayoutEngine] multiple slot placeholders detected", { occurrences });
-    }
-
-    return layout.replaceAll(slotMarker, content);
+    return String(layout || fallbackLayout())
+      .replace("{{slot:main}}", content || "")
+      .replace("{{slot:nav}}", Runtime?.renderPublicNav?.() || "");
   }
 
   return {
