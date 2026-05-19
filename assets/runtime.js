@@ -179,6 +179,13 @@ const Runtime = (() => {
       update.userCapabilities ?? sharedState.userCapabilities ?? []
     ));
     const isAuthenticated = update.isAuthenticated ?? sharedState.isAuthenticated ?? !!currentUser;
+    const dataReady = update.dataReady ?? sharedState.dataReady ?? false;
+    const dataMode = update.dataMode ?? sharedState.dataMode ?? null;
+    const dataStores = Array.isArray(update.dataStores)
+      ? update.dataStores
+      : Array.isArray(sharedState.dataStores)
+        ? sharedState.dataStores
+        : [];
 
     return {
       activeRoute: update.activeRoute ?? state.route ?? sharedState.activeRoute,
@@ -187,6 +194,9 @@ const Runtime = (() => {
       currentRole,
       userCapabilities,
       isAuthenticated,
+      dataReady,
+      dataMode,
+      dataStores,
       loadedModules,
       loadedPlugins,
       loadedFeatures,
@@ -241,6 +251,10 @@ const Runtime = (() => {
       safeMode: { ...safeMode },
       activeRoute: state.route,
       booted,
+      currentUser: window.DataCoreSystem?.getCurrentUser?.() ?? null,
+      currentRole: window.DataCoreSystem?.isAuthenticated?.() ? window.DataCoreSystem?.getCurrentUser?.()['role'] ?? null : null,
+      userCapabilities: window.DataCoreSystem?.getCapabilities?.() ?? [],
+      isAuthenticated: window.DataCoreSystem?.isAuthenticated?.() ?? false,
       diagnostics: {
         logs: Diagnostics.getLogs().length,
         warnings: Diagnostics.getWarnings().length,
@@ -582,6 +596,10 @@ const Runtime = (() => {
 
       if (window.UserCoreSystem?.init) {
         await window.UserCoreSystem.init();
+      }
+
+      if (window.DataCoreSystem?.init) {
+        await window.DataCoreSystem.init();
       }
 
       const sessionState = window.UserCoreSystem?.getSessionState?.() || {};
