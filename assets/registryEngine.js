@@ -19,6 +19,12 @@ const RegistryEngine = (() => {
       nav: typeof route.nav === "boolean" ? route.nav : true,
       label,
       title: typeof route.title === "string" ? route.title : null,
+      roles: Array.isArray(route.roles)
+        ? route.roles.filter((item) => typeof item === "string" && item.trim())
+        : [],
+      capabilities: Array.isArray(route.capabilities)
+        ? route.capabilities.filter((item) => typeof item === "string" && item.trim())
+        : [],
       features: Array.isArray(route.features) ? route.features : []
     };
   }
@@ -33,6 +39,8 @@ const RegistryEngine = (() => {
     if (route.nav !== undefined && typeof route.nav !== "boolean") return false;
     if (route.label !== undefined && typeof route.label !== "string") return false;
     if (route.title !== undefined && typeof route.title !== "string") return false;
+    if (route.roles !== undefined && !Array.isArray(route.roles)) return false;
+    if (route.capabilities !== undefined && !Array.isArray(route.capabilities)) return false;
     if (route.features !== undefined && !Array.isArray(route.features)) return false;
     if (route.layout !== undefined && typeof route.layout !== "string") return false;
     return true;

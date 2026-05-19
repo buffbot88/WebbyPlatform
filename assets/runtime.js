@@ -173,9 +173,20 @@ const Runtime = (() => {
       update.loadedFeatures ?? sharedState.loadedFeatures ?? []
     ));
 
+    const currentUser = update.currentUser ?? sharedState.currentUser ?? null;
+    const currentRole = update.currentRole ?? sharedState.currentRole ?? (currentUser?.role || "guest");
+    const userCapabilities = Array.from(new Set(
+      update.userCapabilities ?? sharedState.userCapabilities ?? []
+    ));
+    const isAuthenticated = update.isAuthenticated ?? sharedState.isAuthenticated ?? !!currentUser;
+
     return {
       activeRoute: update.activeRoute ?? state.route ?? sharedState.activeRoute,
       currentLayout: update.currentLayout ?? sharedState.currentLayout,
+      currentUser: cloneValue(currentUser),
+      currentRole,
+      userCapabilities,
+      isAuthenticated,
       loadedModules,
       loadedPlugins,
       loadedFeatures,
@@ -257,6 +268,22 @@ const Runtime = (() => {
 
     if (JSON.stringify(actual.safeMode) !== JSON.stringify(sharedState.safeMode)) {
       drift.push("safeMode");
+    }
+
+    if (JSON.stringify(actual.currentUser) !== JSON.stringify(sharedState.currentUser)) {
+      drift.push("currentUser");
+    }
+
+    if (actual.currentRole !== sharedState.currentRole) {
+      drift.push("currentRole");
+    }
+
+    if (JSON.stringify(actual.userCapabilities) !== JSON.stringify(sharedState.userCapabilities)) {
+      drift.push("userCapabilities");
+    }
+
+    if (actual.isAuthenticated !== sharedState.isAuthenticated) {
+      drift.push("isAuthenticated");
     }
 
     if (actual.activeRoute !== sharedState.activeRoute) {
@@ -553,6 +580,12 @@ const Runtime = (() => {
 
       PluginEngine.mountAll({ state });
 
+      if (window.UserCoreSystem?.init) {
+        await window.UserCoreSystem.init();
+      }
+
+      const sessionState = window.UserCoreSystem?.getSessionState?.() || {};
+
       updateRuntimeState({
         config: ConfigLoader.get(),
         registry: RegistryEngine.getAll(),
@@ -561,7 +594,8 @@ const Runtime = (() => {
         activeRoute: state.route,
         currentLayout: null,
         moduleHealth: ModuleLoader.getHealth(),
-        pluginHealth: PluginEngine.getHealth()
+        pluginHealth: PluginEngine.getHealth(),
+        ...sessionState
       });
 
       AdminSystemCore.init();
@@ -665,7 +699,22 @@ const Runtime = (() => {
       return;
     }
 
-    if (!AdminSystemCore.requireAuth(route)) return;
+    if (window.UserCoreSystem?.isRouteAccessible && !window.UserCoreSystem.isRouteAccessible(route)) {
+      const reason = window.UserCoreSystem.getRouteDeniedReason?.(route) || "Access denied";
+
+      Diagnostics.warn("[Runtime] route access denied", {
+        route: route.id,
+        reason
+      });
+
+      if (!window.UserCoreSystem.isAuthenticated?.()) {
+        await navigate("account", { updateHash: true });
+        return;
+      }
+
+      Diagnostics.renderError("Access denied. You do not have permission to view this page.");
+      return;
+    }
 
     try {
       const layout = await LayoutEngine.load(route.layout || "default");
@@ -745,28 +794,28 @@ const Runtime = (() => {
   }
   
   function renderPublicNav() {
-	  const registry = RegistryEngine.getAll() || {};
+    const registry = RegistryEngine.getAll() || {};
 
-	  return Object.values(registry)
-		.filter(route =>
-		  route &&
-		  route.type === "page" &&
-		  route.enabled !== false &&
-		  route.auth !== true &&
-		  route.nav !== false
-		)
-		.map(route => {
-		  const id = route.id;
-		  const label = route.label || route.title || route.id;
+    return Object.values(registry)
+      .filter(route =>
+        route &&
+        route.type === "page" &&
+        route.enabled !== false &&
+        route.auth !== true &&
+        route.nav !== false
+      )
+      .map(route => {
+        const id = route.id;
+        const label = route.label || route.title || route.id;
 
-		  return `
-			<button onclick="Runtime.navigate('${id}')">
-			  ${Diagnostics.escapeText(label)}
-			</button>
-		  `;
-		})
-		.join("");
-	}
+        return `
+          <button onclick="Runtime.navigate('${id}')">
+            ${Diagnostics.escapeText(label)}
+          </button>
+        `;
+      })
+      .join("");
+  }
 
   return {
     init,

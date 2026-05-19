@@ -138,8 +138,8 @@ FeatureEngine.register("my-feature", (ctx) => {
 
 ## Browser Storage
 
-- Admin authentication state stored in `localStorage` under key `admin_auth`
-- Can be extended for other persistent data needs
+- Local user accounts and session state are persisted in `localStorage`
+- Users are stored under `WebbyPlatform.Users` and session state under `WebbyPlatform.UserSession`
 
 ## License
 

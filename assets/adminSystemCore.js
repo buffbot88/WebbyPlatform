@@ -1,45 +1,16 @@
 const AdminSystemCore = (() => {
 
   const state = {
-    authed: localStorage.getItem("admin_auth") === "true",
-    pendingRoute: null,
     visible: false,
     activeTab: "runtime",
-    loginError: null,
     statusMessage: null
   };
 
   let panel = null;
   let button = null;
-  let loginModal = null;
 
   function getOverlayRoot() {
     return document.getElementById("overlayLayer") || document.body;
-  }
-
-  function createLoginModal() {
-    if (loginModal) return loginModal;
-    loginModal = document.createElement("div");
-    loginModal.id = "adminLoginModal";
-    loginModal.style.display = "none";
-    loginModal.style.position = "fixed";
-    loginModal.style.inset = "0";
-    loginModal.style.background = "rgba(0,0,0,0.65)";
-    loginModal.style.display = "none";
-    loginModal.innerHTML = `
-      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#0f172a;color:#f8fafc;padding:24px;border-radius:14px;min-width:320px;box-shadow:0 18px 42px rgba(15,23,42,.45);font-family:system-ui,sans-serif;">
-        <div style="font-size:18px;font-weight:700;margin-bottom:14px;">Admin Access</div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <input id="adminUser" placeholder="Username" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#020617;color:#f8fafc;" />
-          <input id="adminPass" type="password" placeholder="Password" style="width:100%;padding:10px;border-radius:8px;border:1px solid #334155;background:#020617;color:#f8fafc;" />
-          <div class="admin-login-error" style="color:#fecaca;min-height:20px;font-size:13px;"></div>
-          <button id="adminLoginBtn" style="width:100%;padding:10px;border:none;border-radius:8px;background:#2563eb;color:#f8fafc;cursor:pointer;font-weight:700;">Sign In</button>
-        </div>
-      </div>
-    `;
-    getOverlayRoot().appendChild(loginModal);
-    loginModal.querySelector("#adminLoginBtn").onclick = () => login();
-    return loginModal;
   }
 
   function createPanel() {
@@ -72,7 +43,7 @@ const AdminSystemCore = (() => {
     button = document.createElement("button");
     button.id = "adminControlToggle";
     button.type = "button";
-    button.textContent = state.authed ? "Admin Panel" : "Admin Login";
+    button.textContent = "Admin Panel";
     button.style.position = "fixed";
     button.style.bottom = "12px";
     button.style.right = "12px";
@@ -86,8 +57,7 @@ const AdminSystemCore = (() => {
     button.style.boxShadow = "0 12px 26px rgba(15, 23, 42, 0.3)";
     button.style.fontWeight = "700";
     button.addEventListener("click", () => {
-      if (!state.authed) {
-        showLogin();
+      if (!window.UserCoreSystem?.can("platform.admin.access")) {
         return;
       }
       togglePanel();
@@ -97,79 +67,52 @@ const AdminSystemCore = (() => {
   }
 
   function init() {
-    createLoginModal();
     createPanel();
     createButton();
     updateButtonState();
+    Lifecycle.on("user:login", updateButtonState);
+    Lifecycle.on("user:logout", updateButtonState);
+    Lifecycle.on("user:register", updateButtonState);
   }
 
   function updateButtonState() {
     if (!button) return;
     const enabled = getSharedState().config?.admin?.enabled !== false;
-    button.style.display = enabled ? "block" : "none";
-    button.textContent = state.authed ? "Admin Panel" : "Admin Login";
-  }
-
-  function syncUI() {
-    state.authed = localStorage.getItem("admin_auth") === "true";
-  }
-
-  function login() {
-    const u = document.getElementById("adminUser")?.value;
-    const p = document.getElementById("adminPass")?.value;
-    const ok = u === "admin" && p === "admin123";
-    if (!ok) {
-      state.loginError = "Invalid username or password.";
-      renderLoginError();
-      return false;
+    const hasAccess = window.UserCoreSystem?.can("platform.admin.access");
+    button.style.display = enabled && hasAccess ? "block" : "none";
+    if (button.style.display === "block") {
+      button.textContent = "Admin Panel";
     }
-    localStorage.setItem("admin_auth", "true");
-    state.authed = true;
-    state.loginError = null;
-    hideLogin();
-    updateButtonState();
-    openPanel();
-    if (state.pendingRoute) {
-      window.Runtime?.navigate(state.pendingRoute);
-      state.pendingRoute = null;
+    if (!hasAccess) {
+      hidePanel();
     }
-    return true;
-  }
-
-  function logout() {
-    localStorage.removeItem("admin_auth");
-    state.authed = false;
-    state.visible = false;
-    if (panel) panel.style.display = "none";
-    updateButtonState();
-    location.reload();
   }
 
   function requireAuth(route) {
-    syncUI();
-    if (route?.auth && !state.authed) {
-      state.pendingRoute = route.id || null;
-      showLogin();
-      return false;
+    if (!route) return true;
+    return window.UserCoreSystem?.isRouteAccessible(route) ?? true;
+  }
+
+  function logout() {
+    if (window.UserCoreSystem?.logout) {
+      window.UserCoreSystem.logout();
     }
-    return true;
+    state.visible = false;
+    if (panel) panel.style.display = "none";
+    updateButtonState();
   }
 
-  function showLogin() {
-    if (!loginModal) createLoginModal();
-    loginModal.style.display = "flex";
-    renderLoginError();
-  }
-
-  function hideLogin() {
-    if (loginModal) loginModal.style.display = "none";
-  }
-
-  function renderLoginError() {
-    const errorEl = loginModal?.querySelector(".admin-login-error");
-    if (errorEl) {
-      errorEl.textContent = state.loginError || "";
+  function openPanel() {
+    const shared = getSharedState();
+    if (!shared.config?.admin?.enabled) return;
+    if (!window.UserCoreSystem?.can("platform.admin.access")) {
+      updateButtonState();
+      return;
     }
+    if (!panel) createPanel();
+    panel.style.display = "block";
+    state.visible = true;
+    renderPanel();
   }
 
   function togglePanel() {
@@ -184,8 +127,8 @@ const AdminSystemCore = (() => {
   function openPanel() {
     const shared = getSharedState();
     if (!shared.config?.admin?.enabled) return;
-    if (!state.authed) {
-      showLogin();
+    if (!window.UserCoreSystem?.can("platform.admin.access")) {
+      updateButtonState();
       return;
     }
     if (!panel) createPanel();
@@ -209,7 +152,7 @@ const AdminSystemCore = (() => {
   }
 
   function canEditRegistry() {
-    return state.authed || getSharedState().safeMode?.safeBoot;
+    return window.UserCoreSystem?.can("platform.admin.access") || getSharedState().safeMode?.safeBoot;
   }
 
   function renderPanel() {
@@ -491,12 +434,8 @@ const AdminSystemCore = (() => {
 
   return {
     init,
-    login,
     logout,
     requireAuth,
-    showLogin,
-    hideLogin,
-    isAuthed: () => state.authed,
     switchTab,
     toggleModuleEnabled,
     togglePluginEnabled,
