@@ -1,6 +1,11 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 
+$contentType = $_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? '';
+if (stripos($contentType, 'application/json') !== 0) {
+    errorResponse('Content-Type must be application/json.');
+}
+
 $SECRET = 'CHANGE_THIS_SECRET_BEFORE_PRODUCTION';
 $STORE_FILES = [
     'users',
@@ -119,7 +124,17 @@ function readStore($path) {
     if (!file_exists($path)) {
         return ['records' => []];
     }
-    $payload = file_get_contents($path);
+    $handle = fopen($path, 'rb');
+    if ($handle === false) {
+        errorResponse('Unable to read store data.');
+    }
+    if (!flock($handle, LOCK_SH)) {
+        fclose($handle);
+        errorResponse('Unable to lock store data for reading.');
+    }
+    $payload = stream_get_contents($handle);
+    flock($handle, LOCK_UN);
+    fclose($handle);
     if ($payload === false) {
         errorResponse('Unable to read store data.');
     }
@@ -147,6 +162,7 @@ function writeStore($path, $storeData) {
     if ($result === false) {
         errorResponse('Failed to write store data.');
     }
+    @chmod($path, 0600);
     return true;
 }
 

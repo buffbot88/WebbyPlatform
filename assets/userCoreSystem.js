@@ -2,9 +2,6 @@
 // Production authentication must be implemented through a secure backend/API.
 const UserCoreSystem = (() => {
 
-  const STORAGE_USERS = "WebbyPlatform.Users";
-  const STORAGE_SESSION = "WebbyPlatform.UserSession";
-
   const DEFAULT_USERS = [
     {
       username: "admin",
@@ -29,58 +26,6 @@ const UserCoreSystem = (() => {
     }
   ];
 
-  const ROLE_CAPABILITIES = {
-    guest: [
-      "platform.account.access"
-    ],
-    user: [
-      "platform.account.access",
-      "user.profile.view",
-      "user.profile.edit",
-      "user.login",
-      "user.logout",
-      "user.register",
-      "forum.thread.create",
-      "forum.post.create"
-    ],
-    moderator: [
-      "platform.account.access",
-      "user.profile.view",
-      "user.profile.edit",
-      "user.login",
-      "user.logout",
-      "user.register",
-      "forum.thread.create",
-      "forum.post.create",
-      "forum.thread.edit",
-      "forum.thread.close",
-      "forum.thread.pin",
-      "forum.thread.unpin",
-      "forum.thread.moveTrash",
-      "forum.post.edit",
-      "forum.post.moveTrash"
-    ],
-    admin: [
-      "platform.account.access",
-      "user.profile.view",
-      "user.profile.edit",
-      "user.login",
-      "user.logout",
-      "user.register",
-      "forum.thread.create",
-      "forum.post.create",
-      "forum.thread.edit",
-      "forum.thread.close",
-      "forum.thread.pin",
-      "forum.thread.unpin",
-      "forum.thread.moveTrash",
-      "forum.post.edit",
-      "forum.post.moveTrash",
-      "platform.admin.access",
-      "platform.admin.manage"
-    ]
-  };
-
   let users = [];
   let currentUser = null;
   let statusMessage = null;
@@ -100,6 +45,7 @@ const UserCoreSystem = (() => {
 
   function normalizeUser(user) {
     return {
+      id: normalizeUsername(user.id || user.username),
       username: normalizeUsername(user.username),
       password: typeof user.password === "string" ? user.password : "",
       displayName: typeof user.displayName === "string" && user.displayName.trim()
@@ -115,75 +61,120 @@ const UserCoreSystem = (() => {
     };
   }
 
-  function loadUsers() {
+  function getRoleCapabilities(role) {
+    if (role === "guest") {
+      return [
+        "site.view",
+        "account.login",
+        "account.signup"
+      ];
+    }
+
+    if (role === "user") {
+      return [
+        "site.view",
+        "account.profile",
+        "forum.thread.create",
+        "forum.post.create",
+        "forum.post.editOwn"
+      ];
+    }
+
+    if (role === "moderator") {
+      return [
+        "site.view",
+        "account.profile",
+        "forum.thread.create",
+        "forum.post.create",
+        "forum.post.editOwn",
+        "forum.thread.edit",
+        "forum.thread.close",
+        "forum.thread.pin",
+        "forum.thread.unpin",
+        "forum.thread.moveTrash",
+        "forum.post.edit",
+        "forum.post.moveTrash"
+      ];
+    }
+
+    if (role === "admin") {
+      return ["*"];
+    }
+
+    return [
+      "site.view",
+      "account.profile",
+      "forum.thread.create",
+      "forum.post.create",
+      "forum.post.editOwn"
+    ];
+  }
+
+  async function loadUsers() {
+    if (!window.DataCoreSystem?.list) {
+      Diagnostics?.warn?.("[UserCoreSystem] DataCoreSystem is unavailable.");
+      users = [];
+      return;
+    }
+
     try {
-      const raw = localStorage.getItem(STORAGE_USERS);
-      const parsed = raw ? JSON.parse(raw) : [];
-      users = Array.isArray(parsed)
-        ? parsed.map(normalizeUser)
-        : [];
+      const stored = await window.DataCoreSystem.list("users");
+      users = Array.isArray(stored) ? stored.map(normalizeUser) : [];
     } catch (err) {
       Diagnostics?.warn?.("[UserCoreSystem] failed to load users", err);
       users = [];
     }
   }
 
-  function saveUsers() {
+  async function saveUsers() {
+    if (!window.DataCoreSystem?.clear || !window.DataCoreSystem?.put) {
+      Diagnostics?.warn?.("[UserCoreSystem] DataCoreSystem is unavailable for saving users.");
+      return;
+    }
+
     try {
-      localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+      await window.DataCoreSystem.clear("users");
+      for (const user of users) {
+        await window.DataCoreSystem.put("users", user);
+      }
     } catch (err) {
       Diagnostics?.warn?.("[UserCoreSystem] failed to save users", err);
     }
   }
 
-  function loadSession() {
-    try {
-      const raw = localStorage.getItem(STORAGE_SESSION);
-      const session = raw ? JSON.parse(raw) : null;
-      if (session && typeof session.username === "string") {
-        const found = users.find((entry) => entry.username === normalizeUsername(session.username));
-        currentUser = found || null;
-      } else {
-        currentUser = null;
-      }
-    } catch (err) {
-      Diagnostics?.warn?.("[UserCoreSystem] failed to restore session", err);
-      currentUser = null;
-    }
+  function findUser(identifier) {
+    const normalized = normalizeUsername(identifier);
+    return users.find((entry) => entry.id === normalized || entry.username === normalized) || null;
   }
 
-  function saveSession() {
-    try {
-      if (currentUser) {
-        localStorage.setItem(STORAGE_SESSION, JSON.stringify({ username: currentUser.username }));
-      } else {
-        localStorage.removeItem(STORAGE_SESSION);
-      }
-    } catch (err) {
-      Diagnostics?.warn?.("[UserCoreSystem] failed to persist session", err);
-    }
+  function setStatusMessage(message) {
+    statusMessage = typeof message === "string" ? message : null;
   }
 
-  function seedDefaultUsers() {
+  async function seedDefaultUsers() {
     if (users.length > 0) return;
-    users = DEFAULT_USERS.map((entry) => normalizeUser({ ...entry, joinedAt: new Date().toISOString() }));
-    saveUsers();
-  }
 
-  function getRoleCapabilities(role) {
-    return Array.from(new Set([...(ROLE_CAPABILITIES[role] || []), ...(ROLE_CAPABILITIES.user || [])]));
+    users = DEFAULT_USERS.map((entry) => normalizeUser({
+      ...entry,
+      id: normalizeUsername(entry.username),
+      joinedAt: new Date().toISOString()
+    }));
+
+    await saveUsers();
   }
 
   function getCurrentUser() {
-    return currentUser ? clone({
+    if (!currentUser) return null;
+    return clone({
+      id: currentUser.id,
       username: currentUser.username,
       displayName: currentUser.displayName,
       bio: currentUser.bio,
       avatar: currentUser.avatar,
       joinedAt: currentUser.joinedAt,
       role: currentUser.role,
-      capabilities: currentUser.capabilities || []
-    }) : null;
+      capabilities: getCapabilities()
+    });
   }
 
   function isAuthenticated() {
@@ -195,7 +186,12 @@ const UserCoreSystem = (() => {
   }
 
   function getCapabilities() {
-    if (!currentUser) return [...ROLE_CAPABILITIES.guest];
+    if (!currentUser) {
+      return getRoleCapabilities("guest");
+    }
+    if (currentUser.role === "admin") {
+      return ["*"];
+    }
     return Array.from(new Set([
       ...getRoleCapabilities(currentUser.role),
       ...(currentUser.capabilities || [])
@@ -203,20 +199,17 @@ const UserCoreSystem = (() => {
   }
 
   function can(capability) {
-    if (typeof capability !== "string" || !capability.trim()) return false;
+    if (currentUser?.role === "admin") {
+      return true;
+    }
+    if (typeof capability !== "string" || !capability.trim()) {
+      return false;
+    }
     return getCapabilities().includes(capability);
   }
 
-  function findUser(username) {
-    const normalized = normalizeUsername(username);
-    return users.find((entry) => entry.username === normalized) || null;
-  }
-
-  function setStatusMessage(message) {
-    statusMessage = typeof message === "string" ? message : null;
-  }
-
-  function authenticate(username, password) {
+  async function authenticate(username, password) {
+    await loadUsers();
     const user = findUser(username);
     if (!user || user.password !== password) {
       setStatusMessage("Invalid username or password.");
@@ -224,13 +217,13 @@ const UserCoreSystem = (() => {
     }
     currentUser = user;
     setStatusMessage("Signed in successfully.");
-    saveSession();
-    persistUserState();
+    updateRuntimeState();
     Lifecycle.emit("user:login", { user: getCurrentUser() });
     return true;
   }
 
-  function register({ username, password, displayName, bio }) {
+  async function signup({ username, password, displayName, bio }) {
+    await loadUsers();
     const normalizedUsername = normalizeUsername(username);
     if (!normalizedUsername || !password || password.length < 3) {
       setStatusMessage("Username and password are required. Password must be at least 3 characters.");
@@ -243,50 +236,82 @@ const UserCoreSystem = (() => {
     }
 
     const newUser = normalizeUser({
+      id: normalizedUsername,
       username: normalizedUsername,
       password,
       displayName,
       bio,
       role: "user",
       joinedAt: new Date().toISOString(),
-      avatar: ""
+      capabilities: []
     });
 
     users.push(newUser);
-    saveUsers();
-
+    await saveUsers();
     currentUser = newUser;
-    saveSession();
     setStatusMessage("Registration complete. You are now signed in.");
-    persistUserState();
+    updateRuntimeState();
     Lifecycle.emit("user:register", { user: getCurrentUser() });
     return true;
   }
 
-  function logout() {
+  async function logout() {
     if (!currentUser) return false;
     const previousUser = currentUser;
     currentUser = null;
-    saveSession();
     setStatusMessage("Logged out successfully.");
-    persistUserState();
+    updateRuntimeState();
     Lifecycle.emit("user:logout", { user: clone(previousUser) });
     return true;
   }
 
-  function updateProfile({ displayName, bio }) {
+  async function updateProfile(patch) {
     if (!currentUser) {
       setStatusMessage("No authenticated user.");
       return false;
     }
 
-    currentUser.displayName = typeof displayName === "string" ? displayName.trim() : currentUser.displayName;
-    currentUser.bio = typeof bio === "string" ? bio.trim() : currentUser.bio;
-    saveUsers();
+    const updated = normalizeUser({
+      ...currentUser,
+      displayName: typeof patch.displayName === "string" ? patch.displayName.trim() : currentUser.displayName,
+      bio: typeof patch.bio === "string" ? patch.bio.trim() : currentUser.bio,
+      avatar: typeof patch.avatar === "string" ? patch.avatar : currentUser.avatar
+    });
+
+    users = users.map((entry) =>
+      entry.id === currentUser.id ? updated : entry
+    );
+
+    currentUser = updated;
+    await saveUsers();
     setStatusMessage("Profile updated successfully.");
-    persistUserState();
+    updateRuntimeState();
     Lifecycle.emit("user:profile:update", { user: getCurrentUser() });
     return true;
+  }
+
+  function getProfile(userId) {
+    if (!userId) {
+      return getCurrentUser();
+    }
+    return clone(findUser(userId));
+  }
+
+  function listUsers() {
+    if (!can("platform.admin.access")) {
+      setStatusMessage("Admin access required to list users.");
+      return [];
+    }
+    return users.map((user) => clone({
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      bio: user.bio,
+      avatar: user.avatar,
+      joinedAt: user.joinedAt,
+      role: user.role,
+      capabilities: getRoleCapabilities(user.role)
+    }));
   }
 
   function getSessionState() {
@@ -298,47 +323,16 @@ const UserCoreSystem = (() => {
     };
   }
 
-  function getRouteDeniedReason(route) {
-    if (!route) return "invalid route";
-    if (!isAuthenticated()) {
-      if (route.auth || (Array.isArray(route.roles) && route.roles.length) || (Array.isArray(route.capabilities) && route.capabilities.length)) {
-        return "authentication required";
-      }
-      return null;
-    }
-
-    if (Array.isArray(route.roles) && route.roles.length) {
-      if (!route.roles.some((role) => hasRole(role))) {
-        return `requires role: ${route.roles.join(", ")}`;
-      }
-    }
-
-    if (Array.isArray(route.capabilities) && route.capabilities.length) {
-      const missing = route.capabilities.filter((cap) => !can(cap));
-      if (missing.length) {
-        return `missing capability: ${missing.join(", ")}`;
-      }
-    }
-
-    return null;
-  }
-
-  function isRouteAccessible(route) {
-    const denied = getRouteDeniedReason(route);
-    return denied === null;
-  }
-
-  function persistUserState() {
+  function updateRuntimeState() {
     if (window.Runtime?.updateRuntimeState) {
       window.Runtime.updateRuntimeState(getSessionState());
     }
   }
 
-  function init() {
-    loadUsers();
-    seedDefaultUsers();
-    loadSession();
-    persistUserState();
+  async function init() {
+    await loadUsers();
+    await seedDefaultUsers();
+    updateRuntimeState();
   }
 
   function getStatusMessage() {
@@ -346,33 +340,33 @@ const UserCoreSystem = (() => {
   }
 
   const UserCoreSystemUI = {
-    loginUser(event) {
+    async loginUser(event) {
       if (event && typeof event.preventDefault === "function") event.preventDefault();
       const username = document.getElementById("accountLoginUsername")?.value;
       const password = document.getElementById("accountLoginPassword")?.value;
-      const success = authenticate(username, password);
+      await authenticate(username, password);
       window.Runtime?.navigate("account", { updateHash: false });
       return false;
     },
-    registerUser(event) {
+    async registerUser(event) {
       if (event && typeof event.preventDefault === "function") event.preventDefault();
       const username = document.getElementById("accountRegisterUsername")?.value;
       const password = document.getElementById("accountRegisterPassword")?.value;
       const displayName = document.getElementById("accountRegisterName")?.value;
       const bio = document.getElementById("accountRegisterBio")?.value;
-      const success = register({ username, password, displayName, bio });
+      await signup({ username, password, displayName, bio });
       window.Runtime?.navigate("account", { updateHash: false });
       return false;
     },
-    logoutUser() {
-      logout();
+    async logoutUser() {
+      await logout();
       window.Runtime?.navigate("account", { updateHash: false });
     },
-    updateProfileUser(event) {
+    async updateProfileUser(event) {
       if (event && typeof event.preventDefault === "function") event.preventDefault();
       const displayName = document.getElementById("accountProfileName")?.value;
       const bio = document.getElementById("accountProfileBio")?.value;
-      const success = updateProfile({ displayName, bio });
+      const success = await updateProfile({ displayName, bio });
       if (success) {
         window.Runtime?.navigate("account", { updateHash: false });
       }
@@ -383,18 +377,19 @@ const UserCoreSystem = (() => {
 
   return {
     init,
+    signup,
+    login: authenticate,
+    logout,
     getCurrentUser,
     isAuthenticated,
     hasRole,
     can,
-    getCapabilities,
+    updateProfile,
+    getProfile,
+    listUsers,
     getSessionState,
     isRouteAccessible,
     getRouteDeniedReason,
-    login: authenticate,
-    logout,
-    register,
-    updateProfile,
     getStatusMessage,
     UserCoreSystemUI
   };

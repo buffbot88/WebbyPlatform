@@ -594,12 +594,16 @@ const Runtime = (() => {
 
       PluginEngine.mountAll({ state });
 
-      if (window.UserCoreSystem?.init) {
-        await window.UserCoreSystem.init();
-      }
-
       if (window.DataCoreSystem?.init) {
         await window.DataCoreSystem.init();
+      }
+
+      if (window.ContentCoreSystem?.init) {
+        await window.ContentCoreSystem.init();
+      }
+
+      if (window.UserCoreSystem?.init) {
+        await window.UserCoreSystem.init();
       }
 
       const sessionState = window.UserCoreSystem?.getSessionState?.() || {};
