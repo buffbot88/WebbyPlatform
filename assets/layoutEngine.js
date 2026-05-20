@@ -73,7 +73,7 @@ const LayoutEngine = (() => {
   function renderBrand() {
     const config = ConfigLoader?.get?.() || {};
     const theme = config.themeSettings || {};
-    const logoText = theme.logoText || config.siteName || "WebbyPlatform OS";
+    const logoText = theme.logoText || config.siteName || "WebbyOS";
     const tagline = config.tagline || "";
 
     return `

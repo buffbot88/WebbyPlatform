@@ -3,7 +3,7 @@ const ConfigLoader = (() => {
   let config = null;
   const CONFIG_RECORD_ID = "platform-config";
   const defaults = {
-    siteName: "WebbyPlatform OS",
+    siteName: "WebbyOS",
     tagline: "Modular publishing for community sites.",
     theme: "light-blue",
     features: {},
@@ -13,7 +13,7 @@ const ConfigLoader = (() => {
       primaryColor: "#3b82f6",
       accentColor: "#16a34a",
       backgroundMode: "soft",
-      logoText: "WebbyPlatform OS",
+      logoText: "WebbyOS",
       navStyle: "pills",
       layoutDensity: "comfortable"
     }

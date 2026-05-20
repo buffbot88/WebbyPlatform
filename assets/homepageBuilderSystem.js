@@ -5,7 +5,7 @@ const HomepageBuilderSystem = (() => {
 
   const defaults = {
     hero: {
-      kicker: "WebbyPlatform CMS",
+      kicker: "WebbyOS CMS",
       title: "Build a modular website from one stable PlatformCore.",
       body: "This frontend gateway is ready for blogs, forums, calendars, accounts, community tools, and future installable modules."
     },

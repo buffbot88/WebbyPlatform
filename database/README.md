@@ -1,6 +1,6 @@
 # Database Folder
 
-This directory contains encrypted JSON database files used by WebbyPlatform.
+This directory contains encrypted JSON database files used by WebbyOS.
 
 - Store files are encrypted and should not be edited manually.
 - The folder must not be directly accessible from the web.

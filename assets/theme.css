@@ -2008,26 +2008,82 @@ button.primary {
 
 #adminControlPanel {
   position: fixed;
-  top: 12px;
-  right: 12px;
-  width: min(980px, calc(100vw - 24px));
-  max-height: calc(100vh - 24px);
+  inset: 0px;
+  width: 100vw;
+  height: 100vh;
   overflow: auto;
-  background: #0b1220;
+  background: rgba(6,10,14,0.96);
   color: #f8fafc;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 14px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.48);
+  border: none;
+  border-radius: 0px;
+  box-shadow: none;
   z-index: 10010;
   font-family: system-ui, sans-serif;
   font-size: 13px;
   line-height: 1.45;
   display: none;
-  padding: 14px;
+  padding: 20px;
 }
 
 #adminControlPanel button {
   color: #f8fafc;
+}
+
+/* Admin console layout */
+.admin-console {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
+  height: calc(100vh - 56px);
+}
+
+.admin-console-sidebar {
+  background: transparent;
+  padding: 8px;
+  overflow:auto;
+}
+
+.admin-console-main {
+  background: transparent;
+  padding: 8px;
+  overflow:auto;
+}
+
+.admin-console-category {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-weight:700;
+}
+
+.admin-console-category.active {
+  background:#0b1220;
+  color:#f8fafc;
+}
+
+.admin-console-subnav {
+  margin-top:8px;
+  display:block;
+}
+
+.admin-console-subnav-item {
+  display:block;
+  padding:6px 10px;
+  border-radius:8px;
+  color:#94a3b8;
+  cursor:pointer;
+}
+
+.admin-console-subnav-item.active {
+  color:#f8fafc;
+  background:#0f172a;
+}
+
+@media (max-width: 860px) {
+  .admin-console { grid-template-columns: 1fr; height: auto; }
+  #adminControlToggle { bottom: 72px; }
 }
 
 #adminControlToggle {

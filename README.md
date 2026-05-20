@@ -1,10 +1,10 @@
-# WebbyPlatform OS
+# WebbyOS
 
-A lightweight, modular JavaScript platform for building web applications with an engine-based architecture. WebbyPlatform OS provides a clean abstraction for routing, module loading, feature management, and plugin extensibility without heavy frameworks.
+A lightweight, modular JavaScript platform for building web applications with an engine-based architecture. WebbyOS provides a clean abstraction for routing, module loading, feature management, and plugin extensibility without heavy frameworks.
 
 ## Overview
 
-WebbyPlatform OS is built on a **modular engine architecture** that separates concerns into independent, composable systems:
+WebbyOS is built on a **modular engine architecture** that separates concerns into independent, composable systems:
 
 - **Registry Engine** - Manages routes and page definitions
 - **Config Loader** - Loads application configuration
@@ -69,7 +69,7 @@ Controls application settings:
 
 ```json
 {
-  "siteName": "WebbyPlatform OS",
+  "siteName": "WebbyOS",
   "theme": "light-blue",
   "features": {
     "chat": true

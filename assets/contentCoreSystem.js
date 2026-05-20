@@ -7,8 +7,8 @@ const ContentCoreSystem = (() => {
     {
       contentType: "page",
       slug: "welcome",
-      title: "Welcome to WebbyPlatform",
-      body: "<p>Welcome to the WebbyPlatform demo. This content is stored through DataCoreSystem into the encrypted PHP file DB.</p>",
+      title: "Welcome to WebbyOS",
+      body: "<p>Welcome to the WebbyOS demo. This content is stored through DataCoreSystem into the encrypted PHP file DB.</p>",
       status: "published",
       authorId: "admin"
     }

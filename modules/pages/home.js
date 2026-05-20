@@ -22,7 +22,7 @@
   function builderConfig() {
     return window.HomepageBuilderSystem?.getConfig?.() || window.HomepageBuilderSystem?.getDefaults?.() || {
       hero: {
-        kicker: "WebbyPlatform CMS",
+        kicker: "WebbyOS CMS",
         title: "Build a modular website from one stable PlatformCore.",
         body: "This frontend gateway is ready for blogs, forums, calendars, accounts, community tools, and future installable modules."
       },
@@ -159,7 +159,7 @@
     const hero = builderConfig().hero || {};
     return `
       <section class="cms-hero">
-        <div class="cms-kicker">${escape(hero.kicker || "WebbyPlatform CMS")}</div>
+        <div class="cms-kicker">${escape(hero.kicker || "WebbyOS CMS")}</div>
         <h1>${escape(hero.title || "Build a modular website from one stable PlatformCore.")}</h1>
         <p>${escape(hero.body || "")}</p>
       </section>

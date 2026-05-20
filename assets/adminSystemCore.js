@@ -3,6 +3,8 @@ const AdminSystemCore = (() => {
   const state = {
     visible: false,
     activeTab: "runtime",
+    activeCategory: "overview",
+    activeSub: null,
     statusMessage: null
   };
 
@@ -137,44 +139,165 @@ const AdminSystemCore = (() => {
     const safeModeActive = getSafeModeActive();
     const canEditRoutes = canEditRegistry();
 
+    // New fullscreen admin console shell: sidebar + main workspace
     panel.innerHTML = `
-      <div class="admin-console-header">
-        <div>
-          <div class="admin-console-title">Platform Control Panel</div>
-          <div class="admin-console-subtitle">Operator tooling for runtime, registry, modules, plugins and config</div>
-        </div>
-        <div class="admin-actions">
-          <button class="admin-button-danger" onclick="window.AdminSystemCore.logout()">Logout</button>
-          <button class="admin-button-secondary" onclick="window.AdminSystemCore.hidePanel()">Close</button>
-        </div>
-      </div>
-      <div class="admin-tabs">
-        ${renderTabButton("runtime", "Runtime")}
-        ${renderTabButton("registry", "Registry")}
-        ${renderTabButton("modules", "Modules")}
-        ${renderTabButton("plugins", "Plugins")}
-        ${renderTabButton("media", "Media")}
-        ${renderTabButton("cms", "CMS")}
-        ${renderTabButton("theme", "Theme")}
-        ${renderTabButton("navigation", "Navigation")}
-        ${renderTabButton("homepage", "Homepage")}
-        ${renderTabButton("widgets", "Widgets")}
-        ${renderTabButton("visibility", "Module Visibility")}
-        ${renderTabButton("permissions", "Permissions")}
-        ${renderTabButton("config", "Config")}
-      </div>
-      <div class="admin-status-strip">
-        <div class="admin-status-item">Booted<br><span class="${runtime.booted ? "admin-badge admin-badge-success" : "admin-badge admin-badge-warning"}">${runtime.booted ? "Yes" : "No"}</span></div>
-        <div class="admin-status-item">Active route<br><span class="admin-badge">${Diagnostics.escapeText(runtime.route || "none")}</span></div>
-        <div class="admin-status-item">Safe mode<br><span class="${safeModeActive ? "admin-badge admin-badge-warning" : "admin-badge"}">${safeModeActive ? "enabled" : "disabled"}</span></div>
-        <div class="admin-status-item">Admin config<br><span class="${config.admin?.enabled ? "admin-badge admin-badge-success" : "admin-badge admin-badge-danger"}">${config.admin?.enabled ? "enabled" : "disabled"}</span></div>
-      </div>
-      ${renderTabContent(state.activeTab, { runtime, config, registryRoutes, modules, plugins, errors, warnings, logs, canEditRoutes, safeModeActive })}
-      <div class="admin-panel" style="margin-top:12px;">
-        <div class="admin-muted">Action state</div>
-        <div class="${state.statusMessage?.includes("failed") ? "admin-badge admin-badge-danger" : "admin-badge admin-badge-success"}">${Diagnostics.escapeText(state.statusMessage || "Ready")}</div>
+      <div class="admin-console">
+        <aside class="admin-console-sidebar">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div>
+              <div class="admin-console-title">WebbyOS Admin Console</div>
+              <div class="admin-console-subtitle">Control panel for runtime, registry, modules, and site settings</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+              <button class="admin-button-danger" onclick="window.AdminSystemCore.logout()">Logout</button>
+              <button class="admin-button-secondary" onclick="window.AdminSystemCore.hidePanel()">Close</button>
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            ${renderCategoryItem("overview", "Overview")}
+            ${renderCategoryItem("site", "Site")}
+            ${renderCategoryItem("community", "Community")}
+            ${renderCategoryItem("content", "Content")}
+            ${renderCategoryItem("users", "Users & Roles")}
+            ${renderCategoryItem("permissions", "Permissions")}
+            ${renderCategoryItem("appearance", "Appearance")}
+            ${renderCategoryItem("builders", "Builders")}
+            ${renderCategoryItem("extensions", "Extensions")}
+            ${renderCategoryItem("maintenance", "Maintenance")}
+            ${renderCategoryItem("system", "System")}
+          </div>
+        </aside>
+        <main class="admin-console-main">
+          <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div class="admin-console-toolbar">
+              <div class="admin-console-title" style="font-size:15px;margin-bottom:4px;">${Diagnostics.escapeText(state.activeCategory.toUpperCase())}</div>
+              <div class="admin-console-subtitle">${Diagnostics.escapeText(state.activeSub || "Overview")}</div>
+            </div>
+            <div class="admin-actions">
+              <div class="admin-badge">Booted: ${runtime.booted ? "Yes" : "No"}</div>
+              <div class="admin-badge">Route: ${Diagnostics.escapeText(runtime.route || "none")}</div>
+              <div class="admin-badge">Safe mode: ${safeModeActive ? "enabled" : "disabled"}</div>
+            </div>
+          </div>
+          <div id="adminConsoleContent" style="min-height:400px;">
+            ${renderCategoryContent(state.activeCategory)}
+          </div>
+          <div style="margin-top:12px;">
+            <div class="admin-muted">Action state</div>
+            <div class="${state.statusMessage?.includes("failed") ? "admin-badge admin-badge-danger" : "admin-badge admin-badge-success"}">${Diagnostics.escapeText(state.statusMessage || "Ready")}</div>
+          </div>
+        </main>
       </div>
     `;
+  }
+
+  function renderCategoryItem(id, label) {
+    return `<div class="admin-console-category ${state.activeCategory === id ? 'active' : ''}" onclick="window.AdminSystemCore.switchCategory('${id}')">${Diagnostics.escapeText(label)}</div>`;
+  }
+
+  function switchCategory(cat) {
+    state.activeCategory = cat;
+    state.activeSub = null;
+    if (state.visible) renderPanel();
+  }
+
+  function switchSub(sub) {
+    state.activeSub = sub;
+    if (state.visible) renderPanel();
+  }
+
+  function renderCategoryContent(category) {
+    const shared = getSharedState();
+    switch (category) {
+      case "overview":
+        return renderRuntimeTab({ runtime: { route: shared.activeRoute, booted: shared.booted, safeMode: shared.safeMode, recovery: Runtime?.getState?.()?.recovery || {} }, config: shared.config, warnings: Diagnostics.getWarnings().slice(-8), errors: Diagnostics.getErrors().slice(-8), logs: Diagnostics.getLogs().slice(-8) });
+      case "site":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderThemeTab({ config: shared.config || {} })}
+            ${renderNavigationTab()}
+            <div style="padding-top:6px;">${renderHomepageTab()}</div>
+          </div>
+        `;
+      case "community":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderCmsTab()}
+            ${renderMediaTab()}
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+              <div style="font-weight:700;margin-bottom:8px;">Community tools</div>
+              <div style="color:#94a3b8;font-size:12px;">Forums, messaging, notifications, activity feed, reputation and moderation summaries appear here when available.</div>
+            </div>
+          </div>
+        `;
+      case "content":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderCmsTab()}
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">${renderList((window.RevisionCoreSystem?.listRecent?.() || []).map(r=> r.id + ' ' + (r.message||'')), 'No revisions')}</div>
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">${renderList((window.SearchCoreSystem?.indexStatus?.() ? ["Index available"] : []), 'Search status unknown')}</div>
+          </div>
+        `;
+      case "users":
+        return `
+          <div style="display:grid;gap:12px;">
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+              <div style="font-weight:700;margin-bottom:8px;">Users</div>
+              <div style="color:#94a3b8;font-size:12px;">User summaries and profile controls.</div>
+              ${renderList((window.UserCoreSystem?.listUsers?.() || []).slice(0,20).map(u => u.id || u.username || JSON.stringify(u)), 'No users')}
+            </div>
+            ${renderPermissionsTab()}
+          </div>
+        `;
+      case "permissions":
+        return renderPermissionsTab();
+      case "appearance":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderThemeTab({ config: shared.config || {} })}
+          </div>
+        `;
+      case "builders":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderHomepageTab()}
+            ${renderNavigationTab()}
+            ${renderWidgetsTab()}
+            ${renderModuleVisibilityTab()}
+          </div>
+        `;
+      case "extensions":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderModulesTab({ modules: shared.moduleHealth || [] })}
+            ${renderPluginsTab({ plugins: shared.pluginHealth || [] })}
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+              <div style="font-weight:700;margin-bottom:8px;">Registered modules & routes</div>
+              <div style="font-size:12px;color:#94a3b8;">A combined view of modules and registered routes.</div>
+            </div>
+          </div>
+        `;
+      case "maintenance":
+        return `
+          <div style="display:grid;gap:12px;">
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+              <div style="font-weight:700;margin-bottom:8px;">Maintenance</div>
+              <div style="color:#94a3b8;font-size:12px;">Cache, search rebuild, diagnostics export and cleanup tools.</div>
+            </div>
+            ${renderRegistryTab({ registryRoutes, canEditRoutes, safeModeActive })}
+          </div>
+        `;
+      case "system":
+        return `
+          <div style="display:grid;gap:12px;">
+            ${renderRuntimeTab({ runtime: { route: shared.activeRoute, booted: shared.booted, safeMode: shared.safeMode, recovery: Runtime?.getState?.()?.recovery || {} }, config: shared.config, warnings: Diagnostics.getWarnings().slice(-8), errors: Diagnostics.getErrors().slice(-8), logs: Diagnostics.getLogs().slice(-8) })}
+            ${renderRegistryTab({ registryRoutes, canEditRoutes, safeModeActive })}
+            ${renderModulesTab({ modules: shared.moduleHealth || [] })}
+          </div>
+        `;
+      default:
+        return `<div>Unknown section</div>`;
+    }
   }
 
   function renderTabButton(tab, label) {
@@ -799,13 +922,13 @@ const AdminSystemCore = (() => {
   function resetThemeEditor() {
     const current = ConfigLoader.get() || {};
     const next = ConfigLoader.mergeConfig?.(current, {
-      siteName: "WebbyPlatform OS",
+      siteName: "WebbyOS",
       tagline: "Modular publishing for community sites.",
       themeSettings: {
         primaryColor: "#3b82f6",
         accentColor: "#16a34a",
         backgroundMode: "soft",
-        logoText: "WebbyPlatform OS",
+        logoText: "WebbyOS",
         navStyle: "pills",
         layoutDensity: "comfortable"
       }
@@ -1006,6 +1129,8 @@ const AdminSystemCore = (() => {
     logout,
     requireAuth,
     switchTab,
+    switchCategory,
+    switchSub,
     toggleModuleEnabled,
     togglePluginEnabled,
     toggleRouteEnabled,
