@@ -1,0 +1,10 @@
+{
+  "siteName": "WebbyPlatform OS",
+  "theme": "light-blue",
+  "features": {
+    "chat": true
+  },
+  "admin": {
+    "enabled": true
+  }
+}
