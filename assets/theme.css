@@ -2086,6 +2086,20 @@ button.primary {
   #adminControlToggle { bottom: 72px; }
 }
 
+/* RuntimeInspector overlay styling */
+.inspector-overlay {
+  position: fixed;
+  inset: 8vh 8vw 8vh 8vw;
+  z-index: 10020;
+  overflow: auto;
+}
+.inspector-modal {
+  background: #071025;
+  border: 1px solid rgba(148,163,184,0.18);
+  padding: 14px;
+  border-radius: 10px;
+}
+
 #adminControlToggle {
   position: fixed;
   bottom: 12px;

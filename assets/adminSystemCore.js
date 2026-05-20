@@ -8,6 +8,43 @@ const AdminSystemCore = (() => {
     statusMessage: null
   };
 
+  const categorySubnavs = {
+    site: [
+      { id: "site.general", label: "General Settings" },
+      { id: "site.navigation", label: "Navigation" },
+      { id: "site.homepage", label: "Homepage" },
+      { id: "site.widgets", label: "Widgets" }
+    ],
+    community: [
+      { id: "community.forums", label: "Forums" },
+      { id: "community.moderation", label: "Moderation" },
+      { id: "community.messaging", label: "Messaging" },
+      { id: "community.notifications", label: "Notifications" },
+      { id: "community.reputation", label: "Reputation" }
+    ],
+    content: [
+      { id: "content.blog", label: "Blog" },
+      { id: "content.calendar", label: "Calendar" },
+      { id: "content.categories", label: "Categories" },
+      { id: "content.tags", label: "Tags" },
+      { id: "content.search", label: "Search" },
+      { id: "content.revisions", label: "Revisions" }
+    ],
+    users: [
+      { id: "users.list", label: "Users" },
+      { id: "users.profiles", label: "Profiles" },
+      { id: "users.roles", label: "Roles" },
+      { id: "users.warnings", label: "Warnings / Suspensions" }
+    ],
+    system: [
+      { id: "system.runtime", label: "Runtime" },
+      { id: "system.registry", label: "Registry" },
+      { id: "system.modules", label: "Modules" },
+      { id: "system.plugins", label: "Plugins" },
+      { id: "system.diagnostics", label: "Diagnostics" }
+    ]
+  };
+
   let panel = null;
   let button = null;
 
@@ -192,7 +229,17 @@ const AdminSystemCore = (() => {
   }
 
   function renderCategoryItem(id, label) {
-    return `<div class="admin-console-category ${state.activeCategory === id ? 'active' : ''}" onclick="window.AdminSystemCore.switchCategory('${id}')">${Diagnostics.escapeText(label)}</div>`;
+    const isActive = state.activeCategory === id;
+    const subnav = isActive && categorySubnavs[id] ? `
+      <div class="admin-console-subnav">
+        ${categorySubnavs[id].map((s) => `<div class="admin-console-subnav-item ${state.activeSub === s.id ? 'active' : ''}" onclick="window.AdminSystemCore.switchSub('${s.id}')">${Diagnostics.escapeText(s.label)}</div>`).join("")}
+      </div>
+    ` : "";
+
+    return `<div>
+      <div class="admin-console-category ${isActive ? 'active' : ''}" onclick="window.AdminSystemCore.switchCategory('${id}')">${Diagnostics.escapeText(label)}</div>
+      ${subnav}
+    </div>`;
   }
 
   function switchCategory(cat) {
@@ -208,18 +255,21 @@ const AdminSystemCore = (() => {
 
   function renderCategoryContent(category) {
     const shared = getSharedState();
+    const sub = state.activeSub;
     switch (category) {
       case "overview":
         return renderRuntimeTab({ runtime: { route: shared.activeRoute, booted: shared.booted, safeMode: shared.safeMode, recovery: Runtime?.getState?.()?.recovery || {} }, config: shared.config, warnings: Diagnostics.getWarnings().slice(-8), errors: Diagnostics.getErrors().slice(-8), logs: Diagnostics.getLogs().slice(-8) });
       case "site":
+        if (sub === 'site.navigation') return renderNavigationTab();
+        if (sub === 'site.homepage') return renderHomepageTab();
+        if (sub === 'site.widgets') return renderWidgetsTab();
         return `
           <div style="display:grid;gap:12px;">
             ${renderThemeTab({ config: shared.config || {} })}
-            ${renderNavigationTab()}
-            <div style="padding-top:6px;">${renderHomepageTab()}</div>
           </div>
         `;
       case "community":
+        if (sub === 'community.messaging') return ` <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">Messaging tools</div>`;
         return `
           <div style="display:grid;gap:12px;">
             ${renderCmsTab()}
@@ -231,6 +281,8 @@ const AdminSystemCore = (() => {
           </div>
         `;
       case "content":
+        if (sub === 'content.revisions') return `<div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">${renderList((window.RevisionCoreSystem?.listRecent?.() || []).map(r=> r.id + ' ' + (r.message||'')), 'No revisions')}</div>`;
+        if (sub === 'content.search') return `<div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">${renderList((window.SearchCoreSystem?.indexStatus?.() ? ["Index available"] : []), 'Search status unknown')}</div>`;
         return `
           <div style="display:grid;gap:12px;">
             ${renderCmsTab()}
@@ -239,6 +291,8 @@ const AdminSystemCore = (() => {
           </div>
         `;
       case "users":
+        if (sub === 'users.list') return `<div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">${renderList((window.UserCoreSystem?.listUsers?.() || []).slice(0,50).map(u => u.id || u.username || JSON.stringify(u)), 'No users')}</div>`;
+        if (sub === 'users.roles') return renderPermissionsTab();
         return `
           <div style="display:grid;gap:12px;">
             <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
@@ -269,7 +323,7 @@ const AdminSystemCore = (() => {
       case "extensions":
         return `
           <div style="display:grid;gap:12px;">
-            ${renderModulesTab({ modules: shared.moduleHealth || [] })}
+            ${renderModulesTab({ modules: shared.moduleHealth || [], registry: shared.registry || {} })}
             ${renderPluginsTab({ plugins: shared.pluginHealth || [] })}
             <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
               <div style="font-weight:700;margin-bottom:8px;">Registered modules & routes</div>
@@ -292,7 +346,10 @@ const AdminSystemCore = (() => {
           <div style="display:grid;gap:12px;">
             ${renderRuntimeTab({ runtime: { route: shared.activeRoute, booted: shared.booted, safeMode: shared.safeMode, recovery: Runtime?.getState?.()?.recovery || {} }, config: shared.config, warnings: Diagnostics.getWarnings().slice(-8), errors: Diagnostics.getErrors().slice(-8), logs: Diagnostics.getLogs().slice(-8) })}
             ${renderRegistryTab({ registryRoutes, canEditRoutes, safeModeActive })}
-            ${renderModulesTab({ modules: shared.moduleHealth || [] })}
+            ${renderModulesTab({ modules: shared.moduleHealth || [], registry: shared.registry || {} })}
+            <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+              <button onclick="window.AdminSystemCore.openRuntimeInspector()">Open RuntimeInspector</button>
+            </div>
           </div>
         `;
       default:
@@ -413,27 +470,59 @@ const AdminSystemCore = (() => {
     `;
   }
 
-  function renderModulesTab({ modules }) {
-    const rows = modules.map((record) => {
-      const moduleId = record.moduleId || record.id;
+  function renderModulesTab({ modules, registry } = {}) {
+    modules = modules || [];
+    registry = registry || {};
+    const moduleHealthMap = (modules || []).reduce((acc, rec) => { acc[rec.moduleId || rec.id] = rec; return acc; }, {});
+    const registryEntries = Object.entries(registry).map(([routeId, route]) => ({ routeId, route }));
+
+    const rows = Object.keys(moduleHealthMap).map((moduleId) => {
+      const record = moduleHealthMap[moduleId];
+      const recModuleId = record.moduleId || record.id || moduleId;
       const status = record.quarantined ? "quarantined" : record.adminDisabled ? "disabled" : "healthy";
       const label = status === "disabled" ? "Enable" : "Disable";
       return `
         <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;margin-bottom:10px;">
-          <div style="font-weight:700;">${Diagnostics.escapeText(moduleId)}</div>
+          <div style="font-weight:700;">${Diagnostics.escapeText(recModuleId)}</div>
           <div style="font-size:12px;color:#cbd5e1;">Status: ${Diagnostics.escapeText(status)}</div>
           <div style="font-size:12px;color:#94a3b8;">Failures: ${record.failureCount || 0}</div>
           <div style="font-size:12px;color:#94a3b8;">Last error: ${Diagnostics.escapeText(record.lastError?.message || record.lastError || "none")}</div>
           <div style="font-size:12px;color:#94a3b8;">Last loaded: ${record.lastLoaded ? new Date(record.lastLoaded).toLocaleString() : "never"}</div>
-          <button onclick="window.AdminSystemCore.toggleModuleEnabled('${Diagnostics.escapeText(moduleId)}')" style="margin-top:10px;padding:8px 12px;border:none;border-radius:8px;background:${status === "disabled" ? `#16a34a` : `#dc2626`};color:#f8fafc;cursor:pointer;">${label}</button>
+          <button onclick="window.AdminSystemCore.toggleModuleEnabled('${Diagnostics.escapeText(recModuleId)}')" style="margin-top:10px;padding:8px 12px;border:none;border-radius:8px;background:${status === "disabled" ? `#16a34a` : `#dc2626`};color:#f8fafc;cursor:pointer;">${label}</button>
         </div>
+      `;
+    }).join("");
+    const registryRows = registryEntries.map(({ routeId, route }) => {
+      return `
+        <tr>
+          <td style="padding:8px;border:1px solid rgba(148,163,184,.2);">${Diagnostics.escapeText(routeId)}</td>
+          <td style="padding:8px;border:1px solid rgba(148,163,184,.2);">${Diagnostics.escapeText(route.module || route.moduleId || route.id || route.handler || route.layout || "-")}</td>
+          <td style="padding:8px;border:1px solid rgba(148,163,184,.2);">${Diagnostics.escapeText(route.layout || "-")}</td>
+          <td style="padding:8px;border:1px solid rgba(148,163,184,.2);">${route.auth ? "yes" : "no"}</td>
+        </tr>
       `;
     }).join("");
 
     return `
-      <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
-        <div style="font-weight:700;margin-bottom:10px;">Module control</div>
-        ${rows || `<div style="opacity:.7">No module health records available.</div>`}
+      <div style="display:grid;gap:12px;">
+        <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+          <div style="font-weight:700;margin-bottom:10px;">Module control</div>
+          ${rows || `<div style="opacity:.7">No module health records available.</div>`}
+        </div>
+        <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;overflow:auto;max-height:300px;">
+          <div style="font-weight:700;margin-bottom:8px;">Registered routes (registry)</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr>
+                <th style="padding:8px;border:1px solid rgba(148,163,184,.3);text-align:left;">Route</th>
+                <th style="padding:8px;border:1px solid rgba(148,163,184,.3);text-align:left;">Module</th>
+                <th style="padding:8px;border:1px solid rgba(148,163,184,.3);text-align:left;">Layout</th>
+                <th style="padding:8px;border:1px solid rgba(148,163,184,.3);text-align:left;">Auth</th>
+              </tr>
+            </thead>
+            <tbody>${registryRows || `<tr><td colspan="4" style="opacity:.7;padding:8px;">No registry routes</td></tr>`}</tbody>
+          </table>
+        </div>
       </div>
     `;
   }
@@ -462,18 +551,12 @@ const AdminSystemCore = (() => {
   }
 
   function renderConfigTab({ config }) {
-    const jsonText = Diagnostics.escapeText(JSON.stringify(config || {}, null, 2));
+    // Raw config editing is intentionally hidden — use explicit settings editors above.
     return `
-      <div style="display:grid;gap:10px;">
-        <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
-          <div style="font-weight:700;margin-bottom:8px;">Config editor</div>
-          <div style="font-size:12px;color:#94a3b8;">Changes are validated before applying. Invalid payloads are rejected to protect runtime integrity.</div>
-        </div>
-        <textarea id="adminConfigEditor" style="width:100%;min-height:240px;padding:12px;border-radius:12px;border:1px solid rgba(148,163,184,.2);background:#020617;color:#f8fafc;font-family:monospace;font-size:12px;">${jsonText}</textarea>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button onclick="window.AdminSystemCore.applyConfigEditor()" style="padding:10px 14px;border:none;border-radius:10px;background:#16a34a;color:#f8fafc;cursor:pointer;">Apply Config</button>
-          <button onclick="window.AdminSystemCore.resetConfigEditor()" style="padding:10px 14px;border:none;border-radius:10px;background:#334155;color:#f8fafc;cursor:pointer;">Reset to Loaded</button>
-        </div>
+      <div style="padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:12px;background:#020617;">
+        <div style="font-weight:700;margin-bottom:8px;">Config (read-only)</div>
+        <div style="font-size:12px;color:#94a3b8;">The raw JSON config editor has been removed to avoid accidental runtime misconfiguration. Use the Site / Appearance / Builders sections to manage settings which are persisted through DataCoreSystem.</div>
+        <pre class="admin-code-editor" style="margin-top:8px;">${Diagnostics.escapeText(JSON.stringify(config || {}, null, 2))}</pre>
       </div>
     `;
   }
@@ -872,24 +955,7 @@ const AdminSystemCore = (() => {
   }
 
   function applyConfigEditor() {
-    const editor = document.getElementById("adminConfigEditor");
-    if (!editor) return;
-    try {
-      const parsed = JSON.parse(editor.value);
-      const result = ConfigLoader.apply(parsed);
-      if (!result.success) {
-        state.statusMessage = `Config apply failed: ${result.error}`;
-      } else {
-        state.statusMessage = "Config applied successfully.";
-        updateButtonState();
-        if (!ConfigLoader.get()?.admin?.enabled) {
-          state.statusMessage = "Config applied and admin access disabled.";
-          hidePanel();
-        }
-      }
-    } catch (err) {
-      state.statusMessage = `Config apply failed: ${err.message || "Invalid JSON"}`;
-    }
+    state.statusMessage = "Raw config editing is disabled. Use the Site/Appearance/Builders panels to update settings.";
     renderPanel();
   }
 
@@ -1124,6 +1190,31 @@ const AdminSystemCore = (() => {
     if (state.visible) renderPanel();
   }
 
+  function openRuntimeInspector() {
+    try {
+      const root = getOverlayRoot();
+      let overlay = document.getElementById('runtimeInspectorOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'runtimeInspectorOverlay';
+        overlay.className = 'inspector-overlay';
+        root.appendChild(overlay);
+      }
+      overlay.innerHTML = `
+        <div class="inspector-modal">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="inspector-title">Runtime Inspector</div>
+            <div><button onclick="document.getElementById('runtimeInspectorOverlay').remove()" class="admin-button-secondary">Close</button></div>
+          </div>
+          ${window.RuntimeInspector?.renderCard ? window.RuntimeInspector.renderCard() : '<div class="inspector-empty">RuntimeInspector unavailable</div>'}
+        </div>
+      `;
+    } catch (err) {
+      state.statusMessage = `Inspector open failed: ${err.message || err}`;
+      renderPanel();
+    }
+  }
+
   return {
     init,
     logout,
@@ -1157,6 +1248,8 @@ const AdminSystemCore = (() => {
     updateButtonState,
     openPanel,
     hidePanel
+    ,
+    openRuntimeInspector
   };
 
 })();
