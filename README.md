@@ -1,146 +1,146 @@
-# WebbyOS
+Before starting v0.47, update README.md so it accurately reflects the current WebbyOS platform state.
 
-A lightweight, modular JavaScript platform for building web applications with an engine-based architecture. WebbyOS provides a clean abstraction for routing, module loading, feature management, and plugin extensibility without heavy frameworks.
+IMPORTANT:
+Do NOT oversell unfinished features.
+Do NOT mention future AI systems.
+Do NOT mention external platform inspirations.
+Do NOT describe WebbyOS as only a lightweight JS framework anymore.
+Do NOT describe unfinished roadmap items as complete.
 
-## Overview
+README should now position WebbyOS as:
+"A modular self-hosted community ecosystem platform with package extensibility, encrypted persistence, builder systems, and a professional Admin Control Panel."
 
-WebbyOS is built on a **modular engine architecture** that separates concerns into independent, composable systems:
+README UPDATE TASKS:
 
-- **Registry Engine** - Manages routes and page definitions
-- **Config Loader** - Loads application configuration
-- **Feature Engine** - Manages feature registration and rendering
-- **Plugin Engine** - Extensibility through a plugin system
-- **Layout Engine** - Loads and injects HTML layout templates
-- **Module Loader** - Dynamically loads page modules
-- **Admin System** - Built-in authentication and admin panel
-- **Runtime** - Core navigation and state management
+1. Rewrite Overview
+Current overview is outdated and too framework-focused.
 
-## Repository Structure
+New overview should explain:
+- WebbyOS is a modular self-hosted community platform
+- built with vanilla JavaScript + PHP persistence bridge
+- includes community systems, builders, package ecosystem, encrypted persistence, and Admin CP
+- designed for extensibility and package-driven growth
+- AI-capable through future extension support, but not AI-dependent
 
-```
-.
-├── index.html              # Application entry point
-├── config.json             # Application configuration
-├── registry.json           # Route and page definitions
-├── assets/                 # Core engine and system files
-│   ├── runtime.js          # Runtime initialization and navigation
-│   ├── registryEngine.js   # Route registry management
-│   ├── configLoader.js     # Config loading
-│   ├── featureEngine.js    # Feature registration/resolution
-│   ├── pluginEngine.js     # Plugin system
-│   ├── layoutEngine.js     # Layout template management
-│   ├── moduleLoader.js     # Module loading
-│   ├── adminSystemCore.js  # Authentication system
-│   └── theme.css           # Styling
-├── layouts/                # HTML layout templates
-│   └── default.html        # Default layout
-└── modules/
-    └── pages/              # Page modules
-        ├── home.js         # Home page
-        ├── blog.js         # Blog page
-        ├── forums.js       # Forums page
-        ├── calendar.js     # Calendar page
-        └── account.js      # Account page
-```
+2. Update Core Systems section
+Replace old “engine” wording with current platform systems.
 
-## Features
+Document:
+- Runtime
+- Registry
+- DataCoreSystem
+- UserCoreSystem
+- ContentCoreSystem
+- PackageCoreSystem
+- AdminSystemCore
+- NavigationBuilderSystem
+- HomepageBuilderSystem
+- WidgetCoreSystem
+- Diagnostics / RuntimeInspector
 
-- **Engine-Based Architecture** - Modular, composable systems with single responsibilities
-- **Config-Driven** - Application behavior controlled via `config.json` and `registry.json`
-- **Plugin System** - Extensible plugin architecture for custom functionality
-- **Routing** - Route-based navigation with layouts and page modules
-- **Feature Management** - Dynamic feature registration and rendering
-- **Authentication** - Built-in admin authentication system
-- **Multiple Layouts** - Support for different layout templates per page
-- **No Heavy Dependencies** - Vanilla JavaScript, no framework bloat
+3. Update Repository Structure
+Reflect current repo structure accurately:
+- assets/
+- modules/pages/
+- layouts/
+- api/
+- database/
+- uploads/
+- TODO.md roadmap
 
-## Getting Started
+Do NOT document future `/Core` structure yet.
 
-1. **Open the application** - Serve `index.html` with an HTTP server (e.g., `python3 -m http.server`)
-2. **Navigate** - Use the navigation buttons to move between Home, Dashboard, and Settings pages
-3. **Login** - Access protected pages by logging in via the admin modal (default: username `admin`, password `admin123`)
-4. **Customize** - Modify `config.json`, `registry.json`, layouts, or page modules to extend functionality
+4. Update Features section
+Current feature list is outdated.
 
-## Configuration
+Include:
+- modular runtime
+- encrypted persistence
+- package ecosystem
+- Admin CP
+- forums/blog/calendar/account systems
+- builder systems
+- package diagnostics
+- permissions/capabilities
+- media uploads
+- moderation systems
+- notifications/activity/reputation
+- lightweight vanilla architecture
 
-### config.json
+Do NOT claim:
+- realtime systems complete
+- installer complete
+- beta/production ready
+- AI systems included
 
-Controls application settings:
+5. Update Getting Started
+Remove outdated admin credential assumptions if no longer guaranteed.
 
-```json
-{
-  "siteName": "WebbyOS",
-  "theme": "light-blue",
-  "features": {
-    "chat": true
-  },
-  "admin": {
-    "enabled": true
-  }
-}
-```
+Document:
+- use PHP server or USBWebserver
+- php -S example
+- encrypted persistence through DataCore
+- admin access through seeded/default admin if configured
 
-### registry.json
+6. Add Development Status section
 
-Defines pages and routes:
+Example:
+## Development Status
+WebbyOS is currently in alpha development.
 
-```json
-{
-  "home": {
-    "id": "home",
-    "type": "page",
-    "layout": "default",
-    "auth": false,
-    "enabled": true,
-    "features": []
-  }
-}
-```
+Current roadmap stage:
+- v0.46 complete
+- v0.47 Public Module UX Foundations ready to begin
 
-## Page Modules
+Link/reference:
+- TODO.md is the execution roadmap source of truth.
 
-Each page module registers itself to `window.ModuleRegistry`:
+7. Add Platform Philosophy section
 
-```javascript
-window.ModuleRegistry.home = {
-  render: (ctx) => {
-    return `<div>Page content here</div>`;
-  }
-};
-```
+Document:
+- modular
+- self-hosted
+- package-capable
+- extensible
+- lightweight
+- vanilla stack
+- AI-capable extensions possible later
+- no framework lock-in
 
-## Extending the Platform
+8. Add Security/Data section
+Document:
+- encrypted DataCore stores
+- PHP persistence bridge
+- capability-based permissions
+- package validation foundation
+- upload restrictions
 
-### Create a New Page
+9. Add Extension/Package section
+Document current PackageCore foundation:
+- manifests
+- package registration
+- package diagnostics
+- local package support
 
-1. Add entry to `registry.json`
-2. Create module file in `modules/pages/`
-3. Register module to `window.ModuleRegistry`
-4. Include script in `index.html`
+Do NOT mention marketplace or remote package installs yet.
 
-### Create a Plugin
+10. Clean outdated language
+Remove:
+- “light-blue theme”
+- simplistic dashboard/settings wording
+- old engine-only framing
+- outdated page examples
+- outdated framework-style positioning
 
-```javascript
-PluginEngine.register("my-plugin", {
-  init: () => { /* Initialize */ },
-  mount: (ctx) => { /* Mount functionality */ },
-  onEvent: (event, data) => { /* Handle events */ }
-});
-```
+11. Validation
+- README should match current platform reality
+- no external platform references
+- no future architecture described as complete
+- no v0.49/v0.50 refactor assumptions
+- no AI system references
+- no inaccurate feature claims
 
-### Add a Feature
-
-```javascript
-FeatureEngine.register("my-feature", (ctx) => {
-  return `<div>Feature content</div>`;
-});
-```
-
-## Local Data Storage
-
-- Local user accounts and session state are persisted through `DataCoreSystem`
-- Data records are stored in encrypted files under `database/` through the DataCore endpoint
-
-## License
-
-MIT
+After updating README.md:
+- summarize major README changes
+- confirm TODO.md remains source of truth
+- do NOT start v0.47 implementation yet
