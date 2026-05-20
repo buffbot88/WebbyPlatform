@@ -8,6 +8,8 @@ ModuleSDK.registerPage("account", {
     const authenticated = userSystem?.isAuthenticated?.() ?? false;
     const statusMessage = userSystem?.getStatusMessage?.() || "";
     const capabilities = userSystem?.getCapabilities?.() || [];
+    const canProfile = userSystem?.can?.("account.profile") ?? false;
+    const isAdmin = userSystem?.hasRole?.("admin") ?? false;
 
     function renderStatus() {
       if (!statusMessage) return "";
@@ -79,6 +81,7 @@ ModuleSDK.registerPage("account", {
     }
 
     const joinedAt = currentUser?.joinedAt ? new Date(currentUser.joinedAt).toLocaleString() : "Unknown";
+
     return `
       <section class="cms-page">
         <h1>Account Profile</h1>
@@ -91,8 +94,10 @@ ModuleSDK.registerPage("account", {
             <div class="profile-avatar">${Diagnostics.escapeText((currentUser?.displayName || currentUser?.username || "?").slice(0, 1).toUpperCase())}</div>
             <div>
               <div class="profile-name">${Diagnostics.escapeText(currentUser?.displayName || currentUser?.username)}</div>
+              <div class="profile-meta">Username: ${Diagnostics.escapeText(currentUser?.username)}</div>
               <div class="profile-meta">Role: ${Diagnostics.escapeText(currentUser?.role || "guest")}</div>
               <div class="profile-meta">Joined: ${Diagnostics.escapeText(joinedAt)}</div>
+              ${isAdmin ? `<div class="profile-meta profile-role-note">Administrator privileges are active.</div>` : ""}
             </div>
           </div>
 
@@ -101,17 +106,21 @@ ModuleSDK.registerPage("account", {
 
         <div class="cms-card">
           <h3>Update Profile</h3>
-          <form onsubmit="window.UserCoreSystemUI.updateProfileUser(event)">
-            <label>
-              Display name
-              <input id="accountProfileName" type="text" value="${Diagnostics.escapeText(currentUser?.displayName || "")}" />
-            </label>
-            <label>
-              Bio
-              <textarea id="accountProfileBio">${Diagnostics.escapeText(currentUser?.bio || "")}</textarea>
-            </label>
-            <button type="submit">Save Profile</button>
-          </form>
+          ${canProfile ? `
+            <form onsubmit="window.UserCoreSystemUI.updateProfileUser(event)">
+              <label>
+                Display name
+                <input id="accountProfileName" type="text" value="${Diagnostics.escapeText(currentUser?.displayName || "")}" />
+              </label>
+              <label>
+                Bio
+                <textarea id="accountProfileBio">${Diagnostics.escapeText(currentUser?.bio || "")}</textarea>
+              </label>
+              <button type="submit">Save Profile</button>
+            </form>
+          ` : `
+            <p class="muted">Profile editing is not available for your account.</p>
+          `}
         </div>
 
         <div class="cms-card">

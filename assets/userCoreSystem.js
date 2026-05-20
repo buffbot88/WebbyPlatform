@@ -76,7 +76,9 @@ const UserCoreSystem = (() => {
         "account.profile",
         "forum.thread.create",
         "forum.post.create",
-        "forum.post.editOwn"
+        "forum.post.editOwn",
+        "blog.post.create",
+        "calendar.event.create"
       ];
     }
 
@@ -93,7 +95,10 @@ const UserCoreSystem = (() => {
         "forum.thread.unpin",
         "forum.thread.moveTrash",
         "forum.post.edit",
-        "forum.post.moveTrash"
+        "forum.post.moveTrash",
+        "blog.post.edit",
+        "blog.post.publish",
+        "calendar.event.edit"
       ];
     }
 
